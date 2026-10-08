@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>团队日报系统</title>
+<style>
+  :root {
+    --header-bg: #FFE680;
+    --header-text: #1f1f1f;
+    --row-odd: #ffffff;
+    --row-even: #f5f6f8;
+    --border: #d0d3d8;
+    --accent: #2563eb;
+    --accent-soft: #eef4ff;
+    --green: #1f8a3d;
+    --red: #d23030;
+    --muted: #6b7280;
+    --bg: #f0f2f5;
+    --panel: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", Arial, sans-serif;
+    background: var(--bg);
+    color: #1f1f1f;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout {
+    display: flex;
+    min-height: 100vh;
+  }
+  /* Sidebar */
+  .sidebar {
+    width: 240px;
+    background: #1f2937;
+    color: #d1d5db;
+    padding: 18px 14px;
+    flex-shrink: 0;
+    border-right: 1px solid #111827;
+  }
+  .sidebar h1 {
+    font-size: 16px;
+    color: #fff;
+    margin: 0 0 6px 0;
+  }
+  .sidebar .sub {
+    font-size: 12px;
+    color: #9ca3af;
+    margin-bottom: 20px;
+  }
+  .sidebar h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #9ca3af;
+    margin: 18px 0 8px;
+    font-weight: 600;
+  }
+  .member-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 18px 0;
+    font-size: 13px;
+  }
+  .member-list li {
+    padding: 6px 8px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+  }
+  .member-list li:hover { background: #374151; color: #fff; }
+  .member-list .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--green); flex-shrink: 0;
+  }
+  .member-list .dot.empty { background: #9ca3af; }
+  .sidebar .btn-outline {
+    width: 100%;
+    background: transparent;
+    color: #d1d5db;
+    border: 1px solid #4b5563;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    margin-bottom: 8px;
+    transition: all .15s;
+  }
+  .sidebar .btn-outline:hover { background: #374151; color: #fff; border-color: #6b7280; }
+
+  /* Main */
+  .main {
+    flex: 1;
+    padding: 18px 24px;
+    overflow: auto;
+  }
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .topbar h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+  }
+  .spacer { flex: 1; }
+  .date-nav {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px 6px;
+  }
+  .date-nav button {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 5px;
+    font-size: 14px;
+    color: #374151;
+  }
+  .date-nav button:hover { background: var(--accent-soft); color: var(--accent); }
+  .date-nav input[type="date"] {
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 5px 8px;
+    font-size: 13px;
+    background: #fff;
+  }
+  .today-chip {
+    font-size: 13px;
+    color: var(--muted);
+    padding: 0 8px;
+  }
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background .15s;
+  }
+  .btn:hover { background: #1d4ed8; }
+  .btn.secondary {
+    background: #fff;
+    color: #374151;
+    border: 1px solid var(--border);
+  }
+  .btn.secondary:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+  .btn.ghost {
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+  }
+  .btn.ghost:hover { background: var(--accent-soft); }
+  .btn.danger { background: #fff; color: var(--red); border: 1px solid #fecaca; }
+  .btn.danger:hover { background: #fef2f2; }
+
+  .summary {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .stat-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    min-width: 130px;
+  }
+  .stat-card .label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .stat-card .value { font-size: 18px; font-weight: 600; }
+  .stat-card.warn .value { color: var(--red); }
+
+  /* Table */
+  .table-wrap {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  table.report {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  table.report th {
+    background: var(--header-bg);
+    color: var(--header-text);
+    font-weight: 600;
+    padding: 10px 12px;
+    text-align: left;
+    border-right: 1px solid var(--border);
+    font-size: 14px;
+  }
+  table.report th:last-child { border-right: none; }
+  table.report td {
+    padding: 0;
+    border-right: 1px solid var(--border);
+    border-top: 1px solid var(--border);
+    vertical-align: top;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  table.report td:last-child { border-right: none; }
+  table.report tr:nth-child(even) td { background: var(--row-even); }
+  table.report tr:nth-child(odd) td { background: var(--row-odd); }
+  table.report tr:hover td { background: #fffbea; }
+  .name-cell {
+    padding: 12px;
+    font-weight: 600;
+    width: 90px;
+    position: relative;
+  }
+  .name-cell .badge {
+    display: inline-block;
+    width: 6px; height: 6px; border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+    background: var(--green);
+  }
+  .name-cell .badge.empty { background: #d1d5db; }
+  .content-cell { padding: 0; width: 55%; }
+  .plan-cell { padding: 0; width: 35%; }
+  .cell-editor {
+    width: 100%;
+    min-height: 80px;
+    padding: 12px;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+    color: #1f1f1f;
+  }
+  .cell-editor:focus { background: #fffde6; box-shadow: inset 0 0 0 2px var(--accent); }
+  .cell-editor::placeholder { color: #cbd5e1; }
+  .empty-row td { height: 60px; }
+  .empty-row .hint {
+    color: #cbd5e1; font-size: 12px; padding: 12px;
+  }
+
+  /* Modal */
+  .modal-mask {
+    position: fixed; inset: 0;
+    background: rgba(15, 23, 42, 0.5);
+    display: none;
+    align-items: center; justify-content: center;
+    z-index: 100;
+  }
+  .modal-mask.show { display: flex; }
+  .modal {
+    background: #fff;
+    border-radius: 10px;
+    width: 520px;
+    max-width: 92vw;
+    max-height: 86vh;
+    overflow: auto;
+    padding: 22px 24px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+  }
+  .modal h3 { margin: 0 0 14px; font-size: 16px; }
+  .modal .row { margin-bottom: 12px; }
+  .modal label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  .modal input, .modal select {
+    width: 100%;
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+  }
+  .modal textarea { width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; min-height: 60px; }
+  .modal-actions {
+    display: flex; justify-content: flex-end; gap: 8px;
+    margin-top: 18px;
+  }
+  .member-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #f3f4f6; border: 1px solid var(--border);
+    padding: 4px 8px; border-radius: 14px; font-size: 12px; margin: 3px;
+  }
+  .member-tag .remove, .member-tag .rename {
+    cursor: pointer; color: #9ca3af; border: none; background: transparent; padding: 0; font-size: 14px; line-height: 1;
+  }
+  .member-tag .remove:hover { color: var(--red); }
+  .member-tag .rename { margin-right: 4px; font-size: 12px; }
+  .member-tag .rename:hover { color: var(--accent); }
+  .member-tag .name-text { cursor: pointer; }
+  .member-tag .name-text:hover { color: var(--accent); text-decoration: underline; }
+
+  .toast {
+    position: fixed;
+    bottom: 24px; left: 50%;
+    transform: translateX(-50%);
+    background: #1f2937; color: #fff;
+    padding: 10px 18px; border-radius: 6px;
+    font-size: 13px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+    opacity: 0; pointer-events: none;
+    transition: opacity .2s;
+    z-index: 200;
+  }
+  .toast.show { opacity: 1; }
+
+  /* Export view (printable) */
+  .export-view { display: none; }
+  @media print {
+    .layout, .topbar, .toolbar, .summary, .sidebar { display: none !important; }
+    .export-view { display: block !important; }
+    .export-view table { width: 100%; border-collapse: collapse; }
+    .export-view th { background: #FFE680 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 8px; border: 1px solid #999; font-size: 13px; text-align: left; }
+    .export-view td { padding: 8px; border: 1px solid #999; vertical-align: top; font-size: 12px; }
+    .export-view tr:nth-child(even) td { background: #f5f6f8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .export-view h2 { margin: 0 0 8px; font-size: 16px; }
+    body { background: #fff; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <h1>团队日报系统</h1>
+    <div class="sub">按日期自动生成 · 按周导出</div>
+
+    <h2>团队成员 (<span id="memberCount">0</span>)</h2>
+    <ul class="member-list" id="memberList"></ul>
+
+    <h2>设置</h2>
+    <button class="btn-outline" onclick="openMemberModal()">管理成员</button>
+    <button class="btn-outline" onclick="exportWeekCSV()">导出本周 (CSV)</button>
+    <button class="btn-outline" onclick="exportWeekHTML()">导出本周 (HTML)</button>
+    <button class="btn-outline" onclick="printWeek()">打印本周</button>
+
+    <h2>钉钉通知</h2>
+    <button class="btn-outline" onclick="openDingTalkModal()">⚙️ 钉钉机器人设置</button>
+    <button class="btn-outline" onclick="notifyUnfilled()">📢 立即通知未填写</button>
+    <div id="serverStatus" style="font-size:11px;color:#9ca3af;margin-top:6px;padding:0 4px;line-height:1.5;">检测后端中...</div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="topbar">
+      <h2 id="reportTitle">日报</h2>
+      <div class="spacer"></div>
+      <div class="date-nav">
+        <button onclick="changeDay(-1)" title="前一天">‹</button>
+        <input type="date" id="datePicker" onchange="loadDate(this.value)" />
+        <button onclick="changeDay(1)" title="后一天">›</button>
+        <button class="today-chip" onclick="goToday()" style="cursor:pointer;background:transparent;border:none;color:var(--accent);font-size:13px;padding:6px 10px;">今天</button>
+      </div>
+    </div>
+
+    <div class="summary" id="summaryCards"></div>
+
+    <div class="toolbar">
+      <button class="btn" onclick="autoFillToday()">📋 一键填入模板</button>
+      <button class="btn secondary" onclick="saveCurrent()">💾 保存</button>
+      <button class="btn ghost" onclick="exportDayHTML()">导出当日 (HTML)</button>
+      <button class="btn danger" onclick="clearDay()">清空当日</button>
+      <span style="font-size:12px;color:var(--muted);margin-left:auto;" id="lastSaved">未保存</span>
+    </div>
+
+    <div class="table-wrap">
+      <table class="report">
+        <colgroup>
+          <col style="width:90px" />
+          <col style="width:55%" />
+          <col />
+        </colgroup>
+        <thead>
+          <tr>
+            <th>姓名</th>
+            <th>工作内容</th>
+            <th>明日计划</th>
+          </tr>
+        </thead>
+        <tbody id="reportBody"></tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- Member Modal -->
+<div class="modal-mask" id="memberModal">
+  <div class="modal">
+    <h3>管理团队成员</h3>
+    <div class="row">
+      <label>添加成员（回车添加，多个用逗号分隔）</label>
+      <input type="text" id="newMemberInput" placeholder="例如：张三,李四" onkeydown="if(event.key==='Enter')addMembersFromInput()" />
+    </div>
+    <div class="row">
+      <label>当前成员（点击名字 ✎ 改名，点击 × 移除。改名会同步迁移历史日报数据）</label>
+      <div id="memberTags" style="border:1px solid var(--border);border-radius:6px;padding:6px;min-height:60px;background:#f9fafb;"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn secondary" onclick="closeMemberModal()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- DingTalk Modal -->
+<div class="modal-mask" id="dingTalkModal">
+  <div class="modal">
+    <h3>钉钉机器人设置</h3>
+    <div class="row">
+      <label>Webhook 地址（钉钉群 → 群设置 → 智能群助手 → 添加自定义机器人）</label>
+      <input type="text" id="dtWebhook" placeholder="https://oapi.dingtalk.com/robot/send?access_token=xxx" />
+    </div>
+    <div class="row">
+      <label>加签密钥（机器人安全设置选"加签"，留空则不签名）</label>
+      <input type="text" id="dtSecret" placeholder="SEC..." />
+    </div>
+    <div class="row">
+      <label>日报系统访问地址（消息中带链接，便于同事直接打开填写）</label>
+      <input type="text" id="dtSiteUrl" placeholder="http://your-ip:3000" />
+    </div>
+    <div class="row">
+      <label>@ 手机号（逗号分隔；这些手机号对应的群成员会被 @ 提醒）</label>
+      <input type="text" id="dtAtMobiles" placeholder="13800000001,13800000002" />
+    </div>
+    <div class="row">
+      <label>每日自动检查时间（HH:MM，仅供记录与手动通知参考）</label>
+      <input type="text" id="dtCheckTime" placeholder="21:30" />
+    </div>
+    <div class="row" style="background:#f9fafb;border-radius:6px;padding:10px;font-size:12px;color:#6b7280;line-height:1.6;">
+      <b>使用说明：</b><br/>
+      1. 在钉钉群右上角"群设置 → 智能群助手 → 添加机器人 → 自定义"<br/>
+      2. 安全设置选"加签"，复制 SECRET 填入上方"加签密钥"<br/>
+      3. 复制 Webhook 地址填入第一栏<br/>
+      4. 在"@手机号"里填入群里被 @ 的成员手机号（与群成员昵称无关，钉钉按手机号 @）<br/>
+      5. <b>自动定时推送</b>：当前已配置为工作日（周一~周五）每天晚上 21:30 自动检查并推送未填写名单。
+         想改推送时间需修改 vercel.json 的 cron schedule（UTC 时间 = 北京时间 - 8）。
+         Pro 计划支持多次触发的时间窗检查<br/>
+      6. 想立即推送：点侧栏"📢 立即通知未填写"手动触发
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="saveDingTalkConfig()">保存设置</button>
+      <button class="btn ghost" onclick="testDingTalk()">发送测试消息</button>
+      <button class="btn secondary" onclick="closeDingTalkModal()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- Export container -->
+<div class="export-view" id="exportView"></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ====== 配置与存储 ====== */
+const STORAGE_KEY = 'team_daily_report_v1';
+const MEMBER_KEY = 'team_daily_report_members_v1';
+
+const DEFAULT_MEMBERS = [
+  '曹二帅','樊星名','林喜纯','刘飞燕','曹东旭',
+  '俞奇峰','岳俊新','马海波','汪云涵','蔡卓甫','胡致远'
+];
+
+let members = JSON.parse(localStorage.getItem(MEMBER_KEY) || 'null') || [...DEFAULT_MEMBERS];
+let currentDate = todayStr();
+let data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+
+function todayStr() {
+  const d = new Date();
+  return d.toISOString().slice(0,10);
+}
+function pad(n){ return String(n).padStart(2,'0'); }
+function fmtDate(d) {
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+function parseDate(s) {
+  const [y,m,d] = s.split('-').map(Number);
+  return new Date(y, m-1, d);
+}
+function weekNumber(s) {
+  // ISO week number
+  const d = parseDate(s);
+  d.setHours(0,0,0,0);
+  const day = (d.getDay() + 6) % 7; // Mon=0..Sun=6
+  const thursday = new Date(d);
+  thursday.setDate(d.getDate() + (3 - day));
+  const firstThursday = new Date(thursday.getFullYear(), 0, 4);
+  const ftDay = (firstThursday.getDay() + 6) % 7;
+  firstThursday.setDate(firstThursday.getDate() + (3 - ftDay));
+  const week = 1 + Math.round((thursday - firstThursday) / (7*24*3600*1000));
+  return { year: thursday.getFullYear(), week };
+}
+
+function getWeekRange(dateStr) {
+  const d = parseDate(dateStr);
+  d.setHours(0,0,0,0);
+  const day = (d.getDay() + 6) % 7; // Mon=0..Sun=6
+  const monday = new Date(d);
+  monday.setDate(d.getDate() - day);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return { start: fmtDate(monday), end: fmtDate(sunday) };
+}
+
+/* ====== 数据访问 ====== */
+function getDayData(dateStr) {
+  if (!data[dateStr]) data[dateStr] = {};
+  return data[dateStr];
+}
+function getMemberData(dateStr, name) {
+  const d = getDayData(dateStr);
+  if (!d[name]) d[name] = { work: '', plan: '' };
+  return d[name];
+}
+function saveAll() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+/* ====== 渲染 ====== */
+function renderTitle() {
+  const d = parseDate(currentDate);
+  const wd = ['周日','周一','周二','周三','周四','周五','周六'][d.getDay()];
+  const { start, end } = getWeekRange(currentDate);
+  document.getElementById('reportTitle').textContent =
+    `${currentDate} ${wd}  ·  周报区间 ${start} ~ ${end}`;
+  document.getElementById('datePicker').value = currentDate;
+}
+function renderSummary() {
+  const dayData = getDayData(currentDate);
+  let filled = 0, empty = 0;
+  members.forEach(m => {
+    const rec = dayData[m];
+    if (rec && (rec.work || '').trim()) filled++;
+    else empty++;
+  });
+  const { start, end } = getWeekRange(currentDate);
+  const weekFill = members.length * 7;
+  let weekFilledEntries = 0;
+  for (let d = new Date(parseDate(start).getTime()); d <= parseDate(end); d.setDate(d.getDate()+1)) {
+    const ds = fmtDate(d);
+    if (data[ds]) {
+      members.forEach(m => {
+        if (data[ds][m] && (data[ds][m].work||'').trim()) weekFilledEntries++;
+      });
+    }
+  }
+  document.getElementById('summaryCards').innerHTML = `
+    <div class="stat-card"><div class="label">当日填写</div><div class="value">${filled}/${members.length}</div></div>
+    <div class="stat-card ${empty>0?'warn':''}"><div class="label">未填写</div><div class="value">${empty}</div></div>
+    <div class="stat-card"><div class="label">本周已填条数</div><div class="value">${weekFilledEntries}/${weekFill}</div></div>
+    <div class="stat-card"><div class="label">周报区间</div><div class="value" style="font-size:13px;">${start}<br/>~ ${end}</div></div>
+  `;
+}
+function renderTable() {
+  const dayData = getDayData(currentDate);
+  const body = document.getElementById('reportBody');
+  if (members.length === 0) {
+    body.innerHTML = `<tr class="empty-row"><td colspan="3" class="hint">尚无成员，请点击左侧"管理成员"添加。</td></tr>`;
+    return;
+  }
+  body.innerHTML = members.map((m, i) => {
+    const rec = dayData[m] || { work:'', plan:'' };
+    const filled = (rec.work||'').trim() || (rec.plan||'').trim();
+    return `
+      <tr>
+        <td class="name-cell">
+          <span class="badge ${filled?'':'empty'}"></span>${escapeHtml(m)}
+        </td>
+        <td class="content-cell">
+          <textarea class="cell-editor" data-name="${escapeAttr(m)}" data-field="work"
+            placeholder="今日完成的工作（可分条编号，如：1. xxx 2. xxx）">${escapeHtml(rec.work||'')}</textarea>
+        </td>
+        <td class="plan-cell">
+          <textarea class="cell-editor" data-name="${escapeAttr(m)}" data-field="plan"
+            placeholder="明日计划...">${escapeHtml(rec.plan||'')}</textarea>
+        </td>
+      </tr>
+    `;
+  }).join('');
+  // Bind editors
+  body.querySelectorAll('textarea.cell-editor').forEach(ta => {
+    ta.addEventListener('input', () => {
+      const rec = getMemberData(currentDate, ta.dataset.name);
+      rec[ta.dataset.field] = ta.value;
+      saveAll();
+      updateLastSaved();
+      renderSummary();
+      renderSidebar();
+      scheduleServerSync();
+    });
+  });
+}
+function renderSidebar() {
+  const list = document.getElementById('memberList');
+  const dayData = getDayData(currentDate);
+  list.innerHTML = members.map(m => {
+    const rec = dayData[m];
+    const filled = rec && (rec.work||'').trim();
+    return `<li onclick="scrollToMember('${escapeAttr(m)}')">
+      <span class="dot ${filled?'':'empty'}"></span>${escapeHtml(m)}
+    </li>`;
+  }).join('');
+  document.getElementById('memberCount').textContent = members.length;
+}
+function renderMemberTags() {
+  const c = document.getElementById('memberTags');
+  c.innerHTML = members.map(m => `
+    <span class="member-tag">
+      <span class="name-text" onclick="renameMember('${escapeAttr(m)}')">${escapeHtml(m)}</span>
+      <button class="rename" title="改名" onclick="renameMember('${escapeAttr(m)}')">✎</button>
+      <button class="remove" title="移除" onclick="removeMember('${escapeAttr(m)}')">×</button>
+    </span>
+  `).join('') || '<span style="color:#9ca3af;font-size:12px;">暂无成员</span>';
+}
+function renderAll() {
+  renderTitle();
+  renderSummary();
+  renderTable();
+  renderSidebar();
+}
+
+/* ====== 操作 ====== */
+function changeDay(delta) {
+  const d = parseDate(currentDate);
+  d.setDate(d.getDate() + delta);
+  currentDate = fmtDate(d);
+  renderAll();
+}
+function loadDate(s) {
+  if (!s) return;
+  currentDate = s;
+  renderAll();
+  if (serverMode) syncFromServer().then(()=>renderAll());
+}
+function goToday() {
+  currentDate = todayStr();
+  renderAll();
+  if (serverMode) syncFromServer().then(()=>renderAll());
+}
+function scrollToMember(name) {
+  const ta = document.querySelector(`textarea[data-name="${name}"][data-field="work"]`);
+  if (ta) { ta.focus(); ta.scrollIntoView({ behavior:'smooth', block:'center' }); }
+}
+function saveCurrent() {
+  saveAll();
+  scheduleServerSync();
+  toast('已保存');
+  updateLastSaved();
+}
+function updateLastSaved() {
+  const t = new Date();
+  document.getElementById('lastSaved').textContent =
+    `最后保存：${pad(t.getHours())}:${pad(t.getMinutes())}:${pad(t.getSeconds())}`;
+}
+function clearDay() {
+  if (!confirm(`确认清空 ${currentDate} 的全部内容？`)) return;
+  delete data[currentDate];
+  saveAll();
+  scheduleServerSync();
+  renderAll();
+  toast('已清空当日');
+}
+function autoFillToday() {
+  const dayData = getDayData(currentDate);
+  const wd = parseDate(currentDate).getDay();
+  members.forEach((m, i) => {
+    const rec = getMemberData(currentDate, m);
+    if (!rec.work.trim()) {
+      rec.work = `1. （待填写 ${m} 的今日工作内容）\n2. \n3. `;
+    }
+    if (!rec.plan.trim()) {
+      rec.plan = `1. （待填写明日计划）`;
+    }
+  });
+  saveAll();
+  renderAll();
+  scheduleServerSync();
+  toast('已填入模板');
+}
+
+/* ====== 成员管理 ====== */
+function openMemberModal() {
+  renderMemberTags();
+  document.getElementById('memberModal').classList.add('show');
+  document.getElementById('newMemberInput').focus();
+}
+function closeMemberModal() {
+  document.getElementById('memberModal').classList.remove('show');
+}
+function addMembersFromInput() {
+  const v = document.getElementById('newMemberInput').value.trim();
+  if (!v) return;
+  const names = v.split(/[,，\n]+/).map(s=>s.trim()).filter(Boolean);
+  let added = 0;
+  names.forEach(n => {
+    if (!members.includes(n)) { members.push(n); added++; }
+  });
+  document.getElementById('newMemberInput').value = '';
+  renderMemberTags();
+  renderSidebar();
+  renderTable();
+  saveMembers();
+  toast(`新增 ${added} 位成员`);
+}
+function removeMember(name) {
+  if (!confirm(`移除成员 "${name}"？历史日报数据会保留。`)) return;
+  members = members.filter(m => m !== name);
+  renderMemberTags();
+  renderSidebar();
+  renderTable();
+  saveMembers();
+}
+function renameMember(oldName) {
+  const newName = prompt(`修改成员名字：\n"${oldName}" → ?`, oldName);
+  if (newName === null) return;
+  const trimmed = newName.trim();
+  if (!trimmed) { toast('名字不能为空'); return; }
+  if (trimmed === oldName) return;
+  if (members.includes(trimmed)) {
+    toast(`名字 "${trimmed}" 已存在`);
+    return;
+  }
+  // 1. 更新成员列表
+  const idx = members.indexOf(oldName);
+  if (idx >= 0) members[idx] = trimmed;
+  // 2. 迁移历史日报数据（所有日期下旧名 key → 新名 key）
+  let migrated = 0;
+  Object.keys(data).forEach(dateStr => {
+    const dayData = data[dateStr];
+    if (dayData && Object.prototype.hasOwnProperty.call(dayData, oldName)) {
+      // 若新名已存在则合并（一般不会，因为前面已校验）
+      dayData[trimmed] = Object.assign({}, dayData[trimmed] || {}, dayData[oldName]);
+      delete dayData[oldName];
+      migrated++;
+    }
+  });
+  saveAll();
+  saveMembers();
+  scheduleFullServerSync(); // 整库同步到服务器
+  renderMemberTags();
+  renderSidebar();
+  renderTable();
+  toast(`已改名：${oldName} → ${trimmed}${migrated>0 ? `（迁移 ${migrated} 天数据）` : ''}`);
+}
+function saveMembers() {
+  localStorage.setItem(MEMBER_KEY, JSON.stringify(members));
+  if (serverMode) {
+    fetch(`${API_BASE}/api/members`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(members)
+    }).catch(()=>{});
+  }
+}
+
+/* ====== 导出 ====== */
+function exportDayHTML() {
+  const html = buildDayHTML(currentDate);
+  download(`${currentDate}_日报.html`, html, 'text/html');
+  toast('已导出当日 HTML');
+}
+function exportWeekHTML() {
+  const { start, end } = getWeekRange(currentDate);
+  const html = buildWeekHTML(start, end);
+  download(`${start}_${end}_周报.html`, html, 'text/html');
+  toast('已导出本周 HTML');
+}
+function exportWeekCSV() {
+  const { start, end } = getWeekRange(currentDate);
+  const csv = buildWeekCSV(start, end);
+  // BOM for Excel
+  download(`${start}_${end}_周报.csv`, '\uFEFF'+csv, 'text/csv;charset=utf-8');
+  toast('已导出本周 CSV');
+}
+function printWeek() {
+  const { start, end } = getWeekRange(currentDate);
+  const html = buildWeekHTML(start, end);
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(() => { w.print(); }, 400);
+}
+
+function buildDayHTML(dateStr) {
+  const dayData = getDayData(dateStr);
+  const d = parseDate(dateStr);
+  const wd = ['周日','周一','周二','周三','周四','周五','周六'][d.getDay()];
+  const rows = members.map((m, i) => {
+    const rec = dayData[m] || { work:'', plan:'' };
+    const bg = i % 2 === 0 ? '#ffffff' : '#f5f6f8';
+    return `<tr>
+      <td style="background:${bg};padding:8px;border:1px solid #999;font-weight:600;">${escapeHtml(m)}</td>
+      <td style="background:${bg};padding:8px;border:1px solid #999;white-space:pre-wrap;">${escapeHtml(rec.work)||'<span style="color:#bbb">—</span>'}</td>
+      <td style="background:${bg};padding:8px;border:1px solid #999;white-space:pre-wrap;">${escapeHtml(rec.plan)||'<span style="color:#bbb">—</span>'}</td>
+    </tr>`;
+  }).join('');
+  return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>日报 ${dateStr}</title>
+  <style>body{font-family:"PingFang SC","Microsoft YaHei",Arial,sans-serif;padding:20px;color:#1f1f1f;}
+  h2{margin:0 0 12px;font-size:18px;} table{width:100%;border-collapse:collapse;table-layout:fixed;}
+  th{background:#FFE680;padding:8px;border:1px solid #999;text-align:left;} td{vertical-align:top;font-size:13px;line-height:1.6;}
+  .meta{color:#6b7280;font-size:12px;margin-bottom:8px;}</style></head>
+  <body>
+    <h2>团队日报 — ${dateStr} ${wd}</h2>
+    <div class="meta">导出时间：${new Date().toLocaleString('zh-CN')}</div>
+    <table>
+      <colgroup><col style="width:90px"><col style="width:55%"><col></colgroup>
+      <thead><tr><th>姓名</th><th>工作内容</th><th>明日计划</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </body></html>`;
+}
+function buildWeekHTML(start, end) {
+  const days = [];
+  let cur = new Date(parseDate(start).getTime());
+  const endD = parseDate(end);
+  while (cur <= endD) {
+    days.push(fmtDate(cur));
+    cur.setDate(cur.getDate()+1);
+  }
+  const sections = days.map(ds => {
+    const d = parseDate(ds);
+    const wd = ['周日','周一','周二','周三','周四','周五','周六'][d.getDay()];
+    const dayData = getDayData(ds);
+    const rows = members.map((m, i) => {
+      const rec = dayData[m] || { work:'', plan:'' };
+      const bg = i % 2 === 0 ? '#ffffff' : '#f5f6f8';
+      const workHtml = rec.work ? `<pre style="margin:0;font-family:inherit;white-space:pre-wrap;">${escapeHtml(rec.work)}</pre>` : '<span style="color:#bbb">—</span>';
+      const planHtml = rec.plan ? `<pre style="margin:0;font-family:inherit;white-space:pre-wrap;">${escapeHtml(rec.plan)}</pre>` : '<span style="color:#bbb">—</span>';
+      return `<tr>
+        <td style="background:${bg};padding:8px;border:1px solid #999;font-weight:600;width:90px;">${escapeHtml(m)}</td>
+        <td style="background:${bg};padding:8px;border:1px solid #999;width:55%;">${workHtml}</td>
+        <td style="background:${bg};padding:8px;border:1px solid #999;">${planHtml}</td>
+      </tr>`;
+    }).join('');
+    return `<h3 style="margin:24px 0 8px;font-size:15px;border-left:4px solid #2563eb;padding-left:8px;">${ds} ${wd}</h3>
+    <table><colgroup><col style="width:90px"><col style="width:55%"><col></colgroup>
+      <thead><tr><th>姓名</th><th>工作内容</th><th>明日计划</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  }).join('');
+  return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>周报 ${start}~${end}</title>
+  <style>body{font-family:"PingFang SC","Microsoft YaHei",Arial,sans-serif;padding:20px;color:#1f1f1f;}
+  h2{margin:0 0 12px;font-size:18px;} table{width:100%;border-collapse:collapse;table-layout:fixed;}
+  th{background:#FFE680;padding:8px;border:1px solid #999;text-align:left;font-size:13px;}
+  td{vertical-align:top;font-size:13px;}
+  .meta{color:#6b7280;font-size:12px;margin-bottom:8px;}
+  @media print{h2{font-size:16px;}h3{page-break-before:auto;}}</style></head>
+  <body>
+    <h2>团队周报 — ${start} ~ ${end}</h2>
+    <div class="meta">导出时间：${new Date().toLocaleString('zh-CN')} · 成员：${members.join('、')}</div>
+    ${sections}
+  </body></html>`;
+}
+function buildWeekCSV(start, end) {
+  const days = [];
+  let cur = new Date(parseDate(start).getTime());
+  const endD = parseDate(end);
+  while (cur <= endD) {
+    days.push(fmtDate(cur));
+    cur.setDate(cur.getDate()+1);
+  }
+  let csv = '日期,星期,姓名,工作内容,明日计划\n';
+  const wdMap = ['周日','周一','周二','周三','周四','周五','周六'];
+  days.forEach(ds => {
+    const wd = wdMap[parseDate(ds).getDay()];
+    const dayData = getDayData(ds);
+    members.forEach(m => {
+      const rec = dayData[m] || { work:'', plan:'' };
+      csv += [
+        ds, wd, m,
+        (rec.work||'').replace(/\n/g,' '),
+        (rec.plan||'').replace(/\n/g,' ')
+      ].map(csvEscape).join(',') + '\n';
+    });
+  });
+  return csv;
+}
+function csvEscape(s) {
+  s = s || '';
+  if (/[",\n]/.test(s)) s = '"' + s.replace(/"/g,'""') + '"';
+  return s;
+}
+function download(filename, content, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+}
+
+/* ====== 工具 ====== */
+function escapeHtml(s){
+  return String(s||'').replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+function escapeAttr(s){
+  return String(s||'').replace(/'/g,"\\'");
+}
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(()=>el.classList.remove('show'), 1800);
+}
+
+/* ====== 钉钉通知与后端同步 ====== */
+// 仅 http/https 协议下尝试连接后端；file:// 直接禁用钉钉功能
+const API_BASE = (location.protocol === 'http:' || location.protocol === 'https:') ? '' : null;
+let serverMode = false; // 是否连上后端
+
+async function detectServer() {
+  // file:// 协议或 API_BASE 为 null 时，无法连接后端
+  if (API_BASE === null) {
+    serverMode = false;
+    setStatus('⚠️ 请通过 node server.js 启动后访问\n（直接打开 HTML 文件无法启用钉钉通知）');
+    renderAll();
+    return;
+  }
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 1500);
+    const r = await fetch(`${API_BASE}/api/config`, { signal: ctrl.signal });
+    clearTimeout(t);
+    // 双重校验：HTTP 200 且响应是 JSON，才算真连上后端
+    const ct = r.headers.get('content-type') || '';
+    if (r.ok && ct.includes('application/json')) {
+      const cfg = await r.json();
+      serverMode = true;
+      applyDingTalkConfig(cfg);
+      // 拉取服务器端成员与当日数据，与本地合并
+      await syncFromServer();
+      // 进一步检查数据库是否配置（仅显示状态用，不阻塞功能）
+      const dbOk = await checkDbConfigured();
+      if (dbOk) {
+        setStatus('✅ 已连接云端数据库 · 钉钉通知可用');
+      } else {
+        setStatus('⚠️ 后端已部署但数据库未配置\n请在 Vercel 项目设置中添加 TURSO_DATABASE_URL / TURSO_AUTH_TOKEN 环境变量');
+      }
+    } else {
+      // 后端返回了非 JSON（通常是 HTML 错误页或静态文件回退）
+      serverMode = false;
+      setStatus('⚠️ 后端未正确响应 · 钉钉功能不可用\n（请确认 server.js 在运行：node server.js）');
+    }
+  } catch (e) {
+    serverMode = false;
+    setStatus('⚠️ 未连接后端 · 钉钉功能不可用\n（仅本地编辑，启动 server.js 启用通知）');
+  }
+  renderAll();
+}
+// 探测数据库是否配置：调 /api/members 看返回是否正常
+async function checkDbConfigured() {
+  try {
+    const r = await fetch(`${API_BASE}/api/members`);
+    if (!r.ok) return false;
+    const j = await safeJson(r);
+    if (j && j.error) return false;
+    return true;
+  } catch { return false; }
+}
+function setStatus(msg) {
+  const el = document.getElementById('serverStatus');
+  if (el) el.innerHTML = msg.replace(/\n/g, '<br/>');
+}
+
+async function syncFromServer() {
+  // 同步成员
+  try {
+    const r = await fetch(`${API_BASE}/api/members`);
+    if (r.ok) {
+      const m = await r.json();
+      if (Array.isArray(m) && m.length) { members = m; saveMembers(); }
+    }
+  } catch {}
+  // 同步当日数据
+  try {
+    const r = await fetch(`${API_BASE}/api/day?date=${encodeURIComponent(currentDate)}`);
+    if (r.ok) {
+      const dayData = await r.json();
+      const local = getDayData(currentDate);
+      // 服务器覆盖本地（以服务器为准），若本地较新则下次保存会反推
+      Object.assign(local, dayData);
+      saveAll();
+    }
+  } catch {}
+}
+
+// debounce 服务器同步
+let saveTimer = null;
+function scheduleServerSync() {
+  if (!serverMode) return;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    const dayData = getDayData(currentDate);
+    fetch(`${API_BASE}/api/save-day`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: currentDate, data: dayData })
+    }).catch(()=>{});
+  }, 600);
+}
+// 整库同步（用于改名等批量迁移场景）
+function scheduleFullServerSync() {
+  if (!serverMode) return;
+  // 用一个独立 timer，不与单日同步冲突
+  clearTimeout(window._fullSyncTimer);
+  window._fullSyncTimer = setTimeout(async () => {
+    try {
+      const dates = Object.keys(data);
+      for (const dateStr of dates) {
+        await fetch(`${API_BASE}/api/save-day`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ date: dateStr, data: data[dateStr] })
+        });
+      }
+    } catch {}
+  }, 300);
+}
+
+/* === 钉钉设置弹窗 === */
+function openDingTalkModal() {
+  document.getElementById('dingTalkModal').classList.add('show');
+  // 拉取最新配置
+  fetch(`${API_BASE}/api/config`).then(r=>r.json()).then(applyDingTalkConfig).catch(()=>{});
+}
+function closeDingTalkModal() {
+  document.getElementById('dingTalkModal').classList.remove('show');
+}
+function applyDingTalkConfig(cfg) {
+  if (!cfg) return;
+  document.getElementById('dtWebhook').value = cfg.webhook || '';
+  document.getElementById('dtSecret').value = cfg.secret || '';
+  document.getElementById('dtSiteUrl').value = cfg.siteUrl || (location.href);
+  document.getElementById('dtAtMobiles').value = (cfg.atMobiles || []).join(',');
+  document.getElementById('dtCheckTime').value = cfg.checkTime || '18:00';
+}
+async function saveDingTalkConfig() {
+  if (!serverMode) { toast('未连接后端，无法保存'); return; }
+  const cfg = {
+    webhook: document.getElementById('dtWebhook').value.trim(),
+    secret: document.getElementById('dtSecret').value.trim(),
+    siteUrl: document.getElementById('dtSiteUrl').value.trim(),
+    atMobiles: document.getElementById('dtAtMobiles').value.split(/[,，\s]+/).map(s=>s.trim()).filter(Boolean),
+    checkTime: document.getElementById('dtCheckTime').value.trim() || '18:00'
+  };
+  try {
+    const r = await fetch(`${API_BASE}/api/config`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cfg)
+    });
+    if (r.ok) toast('钉钉设置已保存');
+    else toast('保存失败 (HTTP ' + r.status + ')');
+  } catch(e) { toast('保存失败: ' + e.message); }
+}
+async function testDingTalk() {
+  if (!serverMode) { toast('未连接后端，请先启动 server.js'); return; }
+  toast('发送测试消息中...');
+  try {
+    const r = await fetch(`${API_BASE}/api/test`, { method: 'POST' });
+    const j = await safeJson(r);
+    if (j && j.ok) toast('测试消息已发送到钉钉群');
+    else toast('失败: ' + (j && j.error ? j.error : '服务器未返回有效 JSON'));
+  } catch(e) { toast('请求失败: ' + e.message); }
+}
+async function notifyUnfilled() {
+  if (!serverMode) {
+    toast('未连接后端，请启动 server.js');
+    return;
+  }
+  toast('检查未填写并推送钉钉...');
+  try {
+    const r = await fetch(`${API_BASE}/api/notify?date=${encodeURIComponent(currentDate)}`, { method: 'POST' });
+    const j = await safeJson(r);
+    if (!j) { toast('服务器返回非 JSON，请检查 server.js 是否在运行'); return; }
+    if (j.ok) {
+      if (j.sent) {
+        toast(`已通知 ${j.unfilled.length} 位未填写：${j.unfilled.join('、')}`);
+      } else {
+        toast(j.message || '全员已填写，无需通知');
+      }
+    } else {
+      toast('失败: ' + (j.error || JSON.stringify(j)));
+    }
+  } catch(e) { toast('请求失败: ' + e.message); }
+}
+// 安全解析 JSON：响应不是 JSON 时返回 null，避免抛出 "Unexpected token" 错误
+async function safeJson(r) {
+  const ct = r.headers.get('content-type') || '';
+  const text = await r.text();
+  if (!ct.includes('application/json') || text.trim().startsWith('<')) {
+    // 服务器返回了 HTML（通常是 404/错误页）
+    return null;
+  }
+  try { return JSON.parse(text); }
+  catch { return null; }
+}
+
+/* ====== 启动 ====== */
+// Auto-create today's empty slots if not exist
+getDayData(currentDate);
+renderAll();
+updateLastSaved();
+
+// 检测后端并启用钉钉功能（异步，不阻塞首屏）
+detectServer();
+
+// 点击遮罩关闭弹窗
+document.getElementById('memberModal').addEventListener('click', e => {
+  if (e.target.id === 'memberModal') closeMemberModal();
+});
+document.getElementById('dingTalkModal').addEventListener('click', e => {
+  if (e.target.id === 'dingTalkModal') closeDingTalkModal();
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+  if (e.key === 'ArrowLeft') changeDay(-1);
+  else if (e.key === 'ArrowRight') changeDay(1);
+  else if (e.key === 't' || e.key === 'T') goToday();
+});
+</script>
+</body>
+</html>
