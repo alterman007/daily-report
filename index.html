@@ -78,6 +78,48 @@
     background: var(--green); flex-shrink: 0;
   }
   .member-list .dot.empty { background: #9ca3af; }
+  /* 年-月选择器 */
+  .ym-picker {
+    display: flex; gap: 6px; margin-bottom: 10px;
+  }
+  .ym-picker select {
+    flex: 1;
+    background: #111827;
+    color: #e5e7eb;
+    border: 1px solid #4b5563;
+    padding: 6px 8px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .ym-picker select:focus { outline: none; border-color: #6b7280; }
+  /* 月份日期列表（按月查看日报） */
+  .date-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 18px 0;
+    font-size: 13px;
+    max-height: 320px;
+    overflow-y: auto;
+  }
+  .date-list li {
+    padding: 6px 8px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+  }
+  .date-list li:hover { background: #374151; color: #fff; }
+  .date-list li.active { background: #1f5fd0; color: #fff; }
+  .date-list .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--green); flex-shrink: 0;
+  }
+  .date-list .dot.empty { background: #9ca3af; }
+  .date-list .date-str { flex: 1; }
+  .date-list .count { font-size: 11px; color: #9ca3af; }
+  .date-list li.active .count { color: #cfe0ff; }
   .sidebar .btn-outline {
     width: 100%;
     background: transparent;
@@ -349,8 +391,20 @@
     <h1>团队日报系统</h1>
     <div class="sub">按日期自动生成 · 按周导出</div>
 
-    <h2>团队成员 (<span id="memberCount">0</span>)</h2>
-    <ul class="member-list" id="memberList"></ul>
+    <h2>按月查看日报</h2>
+    <div class="ym-picker">
+      <select id="yearSel" onchange="onYmChange()"></select>
+      <select id="monthSel" onchange="onYmChange()">
+        <option value="1">1月</option><option value="2">2月</option>
+        <option value="3">3月</option><option value="4">4月</option>
+        <option value="5">5月</option><option value="6">6月</option>
+        <option value="7">7月</option><option value="8">8月</option>
+        <option value="9">9月</option><option value="10">10月</option>
+        <option value="11">11月</option><option value="12">12月</option>
+      </select>
+    </div>
+    <ul class="date-list" id="dateList"></ul>
+    <div style="font-size:11px;color:#9ca3af;margin:-12px 0 18px;padding:0 4px;">共 <span id="monthDateCount">0</span> 天有日报记录</div>
 
     <h2>设置</h2>
     <button class="btn-outline" onclick="openMemberModal()">管理成员</button>
@@ -611,16 +665,79 @@ function renderTable() {
   });
 }
 function renderSidebar() {
-  const list = document.getElementById('memberList');
-  const dayData = getDayData(currentDate);
-  list.innerHTML = members.map(m => {
-    const rec = dayData[m];
-    const filled = rec && (rec.work||'').trim();
-    return `<li onclick="scrollToMember('${escapeAttr(m)}')">
-      <span class="dot ${filled?'':'empty'}"></span>${escapeHtml(m)}
+  // 渲染年-月选择器选项（首次渲染时初始化）
+  initYmPicker();
+  // 渲染当前月份的日期列表
+  renderDateList();
+}
+// 初始化年-月下拉选项
+function initYmPicker() {
+  const yearSel = document.getElementById('yearSel');
+  const monthSel = document.getElementById('monthSel');
+  if (!yearSel || !monthSel) return;
+  // 提取所有有日报数据的年份
+  const years = new Set();
+  Object.keys(data).forEach(dateStr => {
+    const y = dateStr.slice(0, 4);
+    if (y) years.add(y);
+  });
+  // 至少包含当前年份
+  const curYear = String(new Date().getFullYear());
+  years.add(curYear);
+  // 同时考虑 currentDate 所在年份
+  if (currentDate) years.add(currentDate.slice(0, 4));
+  const sortedYears = Array.from(years).sort();
+  // 如果选项没变化，跳过重建（保留用户选择）
+  const currentOpts = Array.from(yearSel.options).map(o => o.value);
+  if (currentOpts.join(',') !== sortedYears.join(',')) {
+    yearSel.innerHTML = sortedYears.map(y =>
+      `<option value="${y}">${y}年</option>`
+    ).join('');
+  }
+  // 同步选中值到当前 currentDate 所在年月
+  const targetYear = currentDate.slice(0, 4);
+  const targetMonth = parseInt(currentDate.slice(5, 7), 10);
+  if (yearSel.value !== targetYear) yearSel.value = targetYear;
+  if (parseInt(monthSel.value, 10) !== targetMonth) monthSel.value = String(targetMonth);
+}
+// 年-月切换时触发：跳转到该月第一天
+function onYmChange() {
+  const yearSel = document.getElementById('yearSel');
+  const monthSel = document.getElementById('monthSel');
+  if (!yearSel || !monthSel) return;
+  const y = yearSel.value;
+  const m = String(monthSel.value).padStart(2, '0');
+  // 跳转到该月第一天（或当前日期，如果还在该月内）
+  const firstDay = `${y}-${m}-01`;
+  // 如果当前日期已经在该月，不跳转（避免循环）
+  if (currentDate.slice(0, 7) === `${y}-${m}`) {
+    renderDateList();
+    return;
+  }
+  loadDate(firstDay);
+}
+// 渲染当前选中月份的日期列表
+function renderDateList() {
+  const list = document.getElementById('dateList');
+  const countEl = document.getElementById('monthDateCount');
+  if (!list) return;
+  const ym = `${currentDate.slice(0, 4)}-${String(parseInt(currentDate.slice(5,7),10)).padStart(2,'0')}`;
+  // 找出该月所有有日报数据的日期
+  const datesInMonth = Object.keys(data)
+    .filter(d => d.startsWith(ym))
+    .sort()
+    .reverse(); // 最近的在最上面
+  list.innerHTML = datesInMonth.map(d => {
+    const dayData = data[d] || {};
+    const filledCount = Object.values(dayData).filter(r => (r.work||'').trim()).length;
+    const isActive = (d === currentDate);
+    return `<li class="${isActive?'active':''}" onclick="loadDate('${d}')">
+      <span class="dot ${filledCount>0?'':'empty'}"></span>
+      <span class="date-str">${d}</span>
+      <span class="count">${filledCount}/${members.length}</span>
     </li>`;
-  }).join('');
-  document.getElementById('memberCount').textContent = members.length;
+  }).join('') || '<li style="color:#6b7280;cursor:default;padding:8px;">本月暂无日报</li>';
+  if (countEl) countEl.textContent = datesInMonth.length;
 }
 function renderMemberTags() {
   const c = document.getElementById('memberTags');
