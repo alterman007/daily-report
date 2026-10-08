@@ -1,11 +1,7 @@
 {
   "name": "team-daily-report",
   "version": "2.0.0",
-  "description": "团队日报系统 - Vercel serverless + Turso SQLite",
   "private": true,
-  "engines": {
-    "node": ">=18"
-  },
   "dependencies": {
     "@libsql/client": "^0.14.0"
   }

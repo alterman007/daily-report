@@ -411,7 +411,7 @@ function wrapHandler(handler) {
 }
 
 module.exports = {
-  dbConfig, dbAvailable,
+  dbConfig, dbAvailable, getDb, initOnce,
   getReports, saveReports, getDay, saveDay,
   getMembers, saveMembers,
   getConfig, saveConfig,

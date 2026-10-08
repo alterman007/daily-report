@@ -28,7 +28,8 @@ const endpoints = {
   '/api/config':  require('./api/config.js'),
   '/api/notify':  require('./api/notify.js'),
   '/api/test':    require('./api/test.js'),
-  '/api/cron':    require('./api/cron.js')
+  '/api/cron':    require('./api/cron.js'),
+  '/api/stats':   require('./api/stats.js')
 };
 
 const MIME = {
