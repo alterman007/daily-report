@@ -5,7 +5,7 @@
 
 IMAGE ?= daily-report
 TAG ?= latest
-REGISTRY ?=
+REGISTRY ?= ccr.ccs.tencentyun.com/citydo
 
 ifeq ($(strip $(REGISTRY)),)
 IMAGE_REF := $(IMAGE):$(TAG)
