@@ -1,0 +1,10 @@
+node_modules
+data
+.git
+.gitignore
+daily-report
+.env
+*.md
+Makefile
+docker-compose.yml
+.DS_Store
