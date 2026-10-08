@@ -3,12 +3,17 @@ const lib = require('./_lib');
 /**
  * Vercel Cron 自动检查
  *
- * 部署后用 Vercel Cron 每 10 分钟触发一次（见 vercel.json）。
+ * vercel.json 配置：工作日（周一~周五）每天 UTC 13:30 触发（= 北京时间 21:30）。
+ *
  * 函数内部判断：
- *   1. 必须是工作日（周一~周五）
- *   2. 当前上海时区时间已过 checkTime（HH:MM）
- *   3. 当天还没推送过（用 Redis key daily:cron-sent 记录）
+ *   1. 必须是工作日（周一~周五，cron schedule 已限定，这里双重保险）
+ *   2. 当天还没推送过（用 Redis key daily:cron-sent 记录）
  * 满足条件则调用 checkAndNotify 推送到钉钉。
+ *
+ * 注意：cron 触发 = 推送，不再做"当前时间 vs checkTime"比较，
+ * 因为 Hobby 一天只触发一次，跳过就再也不推了。
+ * 想改推送时间，改 vercel.json 的 schedule（注意是 UTC 时间，减 8 得北京时间）。
+ * checkTime 字段保留供网页端"立即通知"等场景使用，cron 端不再依赖它做时间窗。
  */
 
 module.exports = async (req, res) => {
@@ -25,24 +30,12 @@ module.exports = async (req, res) => {
   const now = lib.shanghaiNow();
   const config = await lib.getConfig();
   const checkTime = config.checkTime || '18:00';
-  const [targetH, targetM] = checkTime.split(':').map(n => parseInt(n, 10));
 
-  // 周末不检查（0=周日, 6=周六）
-  // shanghaiNow.weekday 是英文 'Sun','Mon' 等，简化：直接看 Date.getUTCDay + 时区偏移
-  const wd = new Date().getUTCDay();
-  // 上海时区 UTC+8，把 UTC 时间转上海日期的 weekday
-  // 简化：用 shanghaiNow 提供的 weekday 字符串
+  // 周末不检查
   const weekdayStr = now.weekday;
   const isWeekend = /^Sat|Sun$/.test(weekdayStr);
   if (isWeekend) {
     return lib.jsonRes(res, 200, { ok: true, skipped: true, reason: '周末不检查', now });
-  }
-
-  // 当前小时:分钟 必须 >= checkTime 才触发
-  const curMin = now.hour * 60 + now.minute;
-  const targetMin = targetH * 60 + targetM;
-  if (curMin < targetMin) {
-    return lib.jsonRes(res, 200, { ok: true, skipped: true, reason: `未到检查时间 ${checkTime}`, now });
   }
 
   // 检查今日是否已推送
@@ -60,3 +53,4 @@ module.exports = async (req, res) => {
   }
   return lib.jsonRes(res, 200, { ...r, now, checkTime });
 };
+

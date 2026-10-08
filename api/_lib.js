@@ -86,7 +86,7 @@ async function saveMembers(m)  { return await redisSet(KEYS.members, m); }
 async function getConfig() {
   const cfg = (await redisGet(KEYS.config)) || {};
   return Object.assign(
-    { webhook: '', secret: '', atMobiles: [], checkTime: '18:00', siteUrl: '' },
+    { webhook: '', secret: '', atMobiles: [], checkTime: '21:30', siteUrl: '' },
     cfg
   );
 }

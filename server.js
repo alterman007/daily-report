@@ -9,7 +9,7 @@
  *   4. 定时自动检查当天未填写并推送到钉钉
  *
  * 启动：
- *   node server.js                 # 默认端口 3000，自动检查时间 18:00
+ *   node server.js                 # 默认端口 3000，自动检查时间 21:30
  *   PORT=8080 node server.js       # 自定义端口
  *   CHECK_TIME=17:30 node server.js  # 自定义自动检查时间
  *
@@ -45,7 +45,7 @@ function getMembers() { return readJSON(MEMBERS_FILE, null); }
 function saveMembers(m) { writeJSON(MEMBERS_FILE, m); }
 function getConfig() {
   return Object.assign(
-    { webhook: '', secret: '', atMobiles: [], checkTime: '18:00', siteUrl: '' },
+    { webhook: '', secret: '', atMobiles: [], checkTime: '21:30', siteUrl: '' },
     readJSON(CONFIG_FILE, {})
   );
 }
@@ -144,7 +144,7 @@ async function checkAndNotify(dateStr) {
 let lastAutoCheckDate = null;
 function startScheduler() {
   const config = getConfig();
-  const checkTime = config.checkTime || process.env.CHECK_TIME || '18:00';
+  const checkTime = config.checkTime || process.env.CHECK_TIME || '21:30';
   const [targetH, targetM] = checkTime.split(':').map(Number);
   console.log(`[调度] 自动检查时间: ${checkTime}`);
   setInterval(() => {

@@ -446,8 +446,8 @@
       <input type="text" id="dtAtMobiles" placeholder="13800000001,13800000002" />
     </div>
     <div class="row">
-      <label>每日自动检查时间（HH:MM，到点服务器自动检查未填写并推送）</label>
-      <input type="text" id="dtCheckTime" placeholder="18:00" />
+      <label>每日自动检查时间（HH:MM，仅供记录与手动通知参考）</label>
+      <input type="text" id="dtCheckTime" placeholder="21:30" />
     </div>
     <div class="row" style="background:#f9fafb;border-radius:6px;padding:10px;font-size:12px;color:#6b7280;line-height:1.6;">
       <b>使用说明：</b><br/>
@@ -455,8 +455,10 @@
       2. 安全设置选"加签"，复制 SECRET 填入上方"加签密钥"<br/>
       3. 复制 Webhook 地址填入第一栏<br/>
       4. 在"@手机号"里填入群里被 @ 的成员手机号（与群成员昵称无关，钉钉按手机号 @）<br/>
-      5. 设置"自动检查时间"，如 18:00；到点服务器会自动检查当天未填写并推送<br/>
-      6. 也可点击侧栏"📢 立即通知未填写"手动触发
+      5. <b>自动定时推送</b>：当前已配置为工作日（周一~周五）每天晚上 21:30 自动检查并推送未填写名单。
+         想改推送时间需修改 vercel.json 的 cron schedule（UTC 时间 = 北京时间 - 8）。
+         Pro 计划支持多次触发的时间窗检查<br/>
+      6. 想立即推送：点侧栏"📢 立即通知未填写"手动触发
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="saveDingTalkConfig()">保存设置</button>
