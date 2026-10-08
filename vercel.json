@@ -1,7 +1,5 @@
 {
-  "version": 1,
-  "cleanUrls": false,
-  "trailingSlash": false,
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     { "source": "/", "destination": "/daily-report.html" }
   ],
