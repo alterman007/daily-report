@@ -664,11 +664,12 @@ function scrollToMember(name) {
 function saveCurrent() {
   saveAll();
   // 立即同步推送到 SQLite（不再 debounce，即使 serverMode=false 也尝试）
-  pushDayToServer(currentDate).then(ok => {
-    if (ok) {
+  pushDayToServer(currentDate).then(result => {
+    if (result && result.ok) {
       toast('✅ 已保存到云端 SQLite');
     } else {
-      toast('⚠️ 云端推送失败，已存本地（点保存重试）');
+      const reason = (result && result.reason) ? result.reason : '未知原因';
+      toast(`⚠️ 云端推送失败：${reason}`);
     }
   });
   updateLastSaved();
@@ -676,6 +677,7 @@ function saveCurrent() {
 // 立即推送单日数据到 SQLite，返回是否成功
 // 即使 serverMode=false 也尝试推送（detectServer 可能因超时误判）
 async function pushDayToServer(dateStr) {
+  let reason = '';
   try {
     const dayData = getDayData(dateStr);
     const ctrl = new AbortController();
@@ -687,17 +689,35 @@ async function pushDayToServer(dateStr) {
       signal: ctrl.signal
     });
     clearTimeout(t);
-    const j = await safeJson(r);
-    if (r.ok && j && j.ok) {
+    const ct = r.headers.get('content-type') || '';
+    if (!r.ok) {
+      reason = `HTTP ${r.status} (${ct || '无 ct'})`;
+      console.warn('[pushDayToServer] 失败:', reason);
+      return { ok: false, reason };
+    }
+    if (!ct.includes('application/json')) {
+      // 服务器返回了 HTML（通常是路由错误回退到 index.html）
+      reason = `非 JSON 响应: ${ct}`;
+      console.warn('[pushDayToServer] 非 JSON:', ct);
+      return { ok: false, reason };
+    }
+    const j = await r.json();
+    if (j && j.ok) {
       // 推送成功，标记 serverMode=true（之前可能是误判）
       if (!serverMode) {
         serverMode = true;
         setStatus('✅ 已连接云端数据库 · 钉钉通知可用');
       }
-      return true;
+      return { ok: true };
     }
-    return false;
-  } catch { return false; }
+    reason = j && j.error ? j.error : JSON.stringify(j).slice(0, 100);
+    console.warn('[pushDayToServer] 返回错误:', j);
+    return { ok: false, reason };
+  } catch (e) {
+    reason = e.name === 'AbortError' ? '超时(10s)' : (e.message || '网络错误');
+    console.warn('[pushDayToServer] 异常:', e);
+    return { ok: false, reason };
+  }
 }
 function updateLastSaved() {
   const t = new Date();
