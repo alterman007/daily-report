@@ -955,12 +955,12 @@ async function detectServer() {
       applyDingTalkConfig(cfg);
       // 拉取服务器端成员与当日数据，与本地合并
       await syncFromServer();
-      // 进一步检查 Redis 是否配置（仅显示状态用，不阻塞功能）
-      const redisOk = await checkRedisConfigured();
-      if (redisOk) {
-        setStatus('✅ 已连接云端存储 · 钉钉通知可用');
+      // 进一步检查数据库是否配置（仅显示状态用，不阻塞功能）
+      const dbOk = await checkDbConfigured();
+      if (dbOk) {
+        setStatus('✅ 已连接云端数据库 · 钉钉通知可用');
       } else {
-        setStatus('⚠️ 后端已部署但 Redis 未配置\n请在 Vercel 项目设置中添加 KV_REST_API_URL / KV_REST_API_TOKEN 环境变量');
+        setStatus('⚠️ 后端已部署但数据库未配置\n请在 Vercel 项目设置中添加 TURSO_DATABASE_URL / TURSO_AUTH_TOKEN 环境变量');
       }
     } else {
       // 后端返回了非 JSON（通常是 HTML 错误页或静态文件回退）
@@ -973,8 +973,8 @@ async function detectServer() {
   }
   renderAll();
 }
-// 探测 Redis 是否配置：调 /api/members 看返回是否正常
-async function checkRedisConfigured() {
+// 探测数据库是否配置：调 /api/members 看返回是否正常
+async function checkDbConfigured() {
   try {
     const r = await fetch(`${API_BASE}/api/members`);
     if (!r.ok) return false;

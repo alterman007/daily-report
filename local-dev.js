@@ -1,17 +1,22 @@
 /**
- * 本地联调服务器：把 api/*.js 跑起来，用 in-memory Map 模拟 Redis
- * 仅用于本地测试，生产环境部署到 Vercel
+ * 本地联调服务器：把 api/*.js 跑起来，用 SQLite 内存数据库（@libsql/client :memory:）
+ * 仅用于本地测试，生产环境部署到 Vercel + Turso
  *
  * 用法：
- *   node local-dev.js          # 默认端口 3001
- *   PORT=4000 node local-dev.js
+ *   node local-dev.js                # 默认端口 3001，用 SQLite 内存数据库
+ *   PORT=4000 node local-dev.js      # 改端口
+ *   TURSO_DATABASE_URL=libsql://xxx.turso.io \
+ *     TURSO_AUTH_TOKEN=xxx node local-dev.js   # 连真实 Turso
  */
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-// 启用 _lib.js 的内存模式：KV_REST_API_URL 以 'memory://' 开头
-process.env.KV_REST_API_URL = 'memory://local-dev';
+// 默认启用 SQLite 内存模式（重启进程数据会丢）
+// 如果已设置 TURSO_DATABASE_URL 则用真实 Turso
+if (!process.env.TURSO_DATABASE_URL && !process.env.LIBSQL_URL) {
+  process.env.LIBSQL_URL = ':memory:';
+}
 
 const lib = require('./api/_lib.js');
 
@@ -96,9 +101,11 @@ const server = http.createServer(async (req, res) => {
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
+  const usingTurso = lib.dbConfig().url && !lib.dbConfig().url.startsWith(':memory:');
   console.log('============================================');
-  console.log('  本地联调服务器已启动（in-memory Redis 模拟）');
+  console.log(`  本地联调服务器已启动 (${usingTurso ? 'Turso 远程' : 'SQLite 内存数据库'})`);
   console.log(`  访问: http://localhost:${PORT}`);
-  console.log('  注意：重启进程数据会丢。生产用 Vercel + Upstash Redis');
+  console.log(`  数据库: ${lib.dbConfig().url || '(未配置)'}`);
+  console.log('  注意：内存模式重启进程数据会丢。生产用 Vercel + Turso');
   console.log('============================================');
 });

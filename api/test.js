@@ -1,9 +1,8 @@
 const lib = require('./_lib');
 
-module.exports = async (req, res) => {
-  if (req.method === 'OPTIONS') return lib.jsonRes(res, 204, '');
+module.exports = lib.wrapHandler(async (req, res) => {
   if (req.method === 'POST') {
-    if (!lib.redisAvailable()) return lib.jsonRes(res, 503, { error: 'Redis 未配置' });
+    if (!lib.dbAvailable()) return lib.jsonRes(res, 503, { error: '数据库未配置' });
     const config = await lib.getConfig();
     if (!config.webhook) return lib.jsonRes(res, 400, { ok: false, error: '未配置 Webhook' });
     const markdown = {
@@ -14,4 +13,4 @@ module.exports = async (req, res) => {
     return lib.jsonRes(res, r.ok ? 200 : 400, r);
   }
   return lib.jsonRes(res, 405, { error: 'Method not allowed' });
-};
+});

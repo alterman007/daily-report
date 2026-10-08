@@ -1,9 +1,8 @@
 const lib = require('./_lib');
 
-module.exports = async (req, res) => {
-  if (req.method === 'OPTIONS') return lib.jsonRes(res, 204, '');
+module.exports = lib.wrapHandler(async (req, res) => {
   if (req.method === 'GET') {
-    if (!lib.redisAvailable()) return lib.jsonRes(res, 503, { error: 'Redis 未配置（请设置 KV_REST_API_URL / KV_REST_API_TOKEN 环境变量）' });
+    if (!lib.dbAvailable()) return lib.jsonRes(res, 503, { error: '数据库未配置（请设置 TURSO_DATABASE_URL / TURSO_AUTH_TOKEN 环境变量）' });
     return lib.jsonRes(res, 200, (await lib.getMembers()) || []);
   }
   if (req.method === 'POST') {
@@ -13,4 +12,4 @@ module.exports = async (req, res) => {
     return lib.jsonRes(res, 200, { ok: true });
   }
   return lib.jsonRes(res, 405, { error: 'Method not allowed' });
-};
+});
