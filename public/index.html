@@ -663,30 +663,40 @@ function scrollToMember(name) {
 }
 function saveCurrent() {
   saveAll();
-  // 立即同步推送到 SQLite（不再 debounce）
+  // 立即同步推送到 SQLite（不再 debounce，即使 serverMode=false 也尝试）
   pushDayToServer(currentDate).then(ok => {
     if (ok) {
       toast('✅ 已保存到云端 SQLite');
-    } else if (serverMode) {
-      toast('⚠️ 云端推送失败，已存本地');
     } else {
-      toast('已保存到本地（未连接云端）');
+      toast('⚠️ 云端推送失败，已存本地（点保存重试）');
     }
   });
   updateLastSaved();
 }
 // 立即推送单日数据到 SQLite，返回是否成功
+// 即使 serverMode=false 也尝试推送（detectServer 可能因超时误判）
 async function pushDayToServer(dateStr) {
-  if (!serverMode) return false;
   try {
     const dayData = getDayData(dateStr);
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 10000);
     const r = await fetch(`${API_BASE}/api/save-day`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: dateStr, data: dayData })
+      body: JSON.stringify({ date: dateStr, data: dayData }),
+      signal: ctrl.signal
     });
+    clearTimeout(t);
     const j = await safeJson(r);
-    return r.ok && j && j.ok;
+    if (r.ok && j && j.ok) {
+      // 推送成功，标记 serverMode=true（之前可能是误判）
+      if (!serverMode) {
+        serverMode = true;
+        setStatus('✅ 已连接云端数据库 · 钉钉通知可用');
+      }
+      return true;
+    }
+    return false;
   } catch { return false; }
 }
 function updateLastSaved() {
@@ -962,9 +972,10 @@ async function detectServer() {
     renderAll();
     return;
   }
+  // Vercel 函数冷启动可能要 3~5 秒，给 8 秒超时
   try {
     const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 1500);
+    const t = setTimeout(() => ctrl.abort(), 8000);
     const r = await fetch(`${API_BASE}/api/config`, { signal: ctrl.signal });
     clearTimeout(t);
     // 双重校验：HTTP 200 且响应是 JSON，才算真连上后端
@@ -985,11 +996,12 @@ async function detectServer() {
     } else {
       // 后端返回了非 JSON（通常是 HTML 错误页或静态文件回退）
       serverMode = false;
-      setStatus('⚠️ 后端未正确响应 · 钉钉功能不可用\n（请确认 server.js 在运行：node server.js）');
+      setStatus(`⚠️ 后端未正确响应 (HTTP ${r.status}, ${ct || '无 content-type'})\n钉钉功能不可用，但日报仍可保存到云端`);
     }
   } catch (e) {
     serverMode = false;
-    setStatus('⚠️ 未连接后端 · 钉钉功能不可用\n（仅本地编辑，启动 server.js 启用通知）');
+    const reason = e.name === 'AbortError' ? '超时(8s)' : (e.message || '网络错误');
+    setStatus(`⚠️ 未连接后端 · 钉钉功能不可用\n原因：${reason}\n（仅本地编辑，日报暂存浏览器）`);
   }
   renderAll();
 }
