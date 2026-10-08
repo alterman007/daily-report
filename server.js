@@ -51,6 +51,14 @@ app.post('/api/members', (req, res) => {
   res.json({ ok: true });
 });
 
+app.post('/api/rename-member', (req, res) => {
+  const from = req.body && req.body.from;
+  const to = req.body && req.body.to;
+  const result = store.renameMember(from, to);
+  if (!result.ok) return res.status(400).json(result);
+  res.json(result);
+});
+
 app.get('/api/day', (req, res) => {
   const date = req.query.date;
   if (!isDate(date)) return res.status(400).json({ error: 'missing date' });
@@ -103,7 +111,7 @@ app.post('/api/test', async (_req, res) => {
     title: '日报系统测试',
     text: `## ✅ 测试消息\n\n这是一条来自团队日报系统的测试消息。\n\n时间：${new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}\n\n如果收到这条消息，说明钉钉机器人配置正确。`
   };
-  const result = await notifier.sendDingTalk(markdown, config.atMobiles || []);
+  const result = await notifier.sendDingTalk(markdown, []);
   res.status(result.ok ? 200 : 400).json(result);
 });
 
@@ -133,6 +141,7 @@ app.get('/api/stats', (_req, res) => {
       webhookConfigured: !!config.webhook,
       secretConfigured: !!config.secret,
       atMobilesCount: (config.atMobiles || []).length,
+      memberMobileCount: stats.mobileCount,
       checkTime: config.checkTime,
       siteUrl: config.siteUrl ? '(已配置)' : '(未配置)'
     },
@@ -160,7 +169,10 @@ function startScheduler() {
   const tick = () => {
     notifier.runScheduledCheck().then((result) => {
       if (result && result.sent) {
-        console.log(`[cron] 已推送 ${result.now && result.now.date} 未填写 ${((result.unfilled) || []).length} 人`);
+        const missing = (result.missingMobile || []).length;
+        console.log(`[cron] 已推送 ${result.now && result.now.date} 未填写 ${(result.unfilled || []).length} 人，@ ${((result.atMobiles) || []).length} 人${missing ? `，${missing} 人未绑定手机号` : ''}`);
+      } else if (result && result.ok === false && result.error !== '未配置钉钉 Webhook') {
+        console.error('[cron] 推送失败:', result.error || 'unknown');
       }
     }).catch((error) => {
       console.error('[cron] 检查失败:', error.message);

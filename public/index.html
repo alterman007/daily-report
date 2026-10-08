@@ -355,6 +355,33 @@
   .member-tag .rename:hover { color: var(--accent); }
   .member-tag .name-text { cursor: pointer; }
   .member-tag .name-text:hover { color: var(--accent); text-decoration: underline; }
+  .member-edit {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .member-edit:last-child { border-bottom: none; }
+  .member-edit .name-text {
+    width: 72px;
+    flex: none;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .member-edit .name-text:hover { color: var(--accent); }
+  .member-edit input { width: auto; flex: 1; }
+  .member-edit .rename, .member-edit .remove {
+    cursor: pointer;
+    color: #9ca3af;
+    border: none;
+    background: transparent;
+    padding: 0 2px;
+    font-size: 14px;
+    line-height: 1;
+  }
+  .member-edit .remove:hover { color: var(--red); }
+  .member-edit .rename:hover { color: var(--accent); }
 
   .toast {
     position: fixed;
@@ -468,7 +495,7 @@
       <input type="text" id="newMemberInput" placeholder="例如：张三,李四" onkeydown="if(event.key==='Enter')addMembersFromInput()" />
     </div>
     <div class="row">
-      <label>当前成员（点击名字 ✎ 改名，点击 × 移除。改名会同步迁移历史日报数据）</label>
+      <label>当前成员（名字可改，手机号用于未填写时在钉钉群 @ 本人；改名会同步迁移历史日报）</label>
       <div id="memberTags" style="border:1px solid var(--border);border-radius:6px;padding:6px;min-height:60px;background:#f9fafb;"></div>
     </div>
     <div class="modal-actions">
@@ -494,11 +521,7 @@
       <input type="text" id="dtSiteUrl" placeholder="http://your-ip:3000" />
     </div>
     <div class="row">
-      <label>@ 手机号（逗号分隔；这些手机号对应的群成员会被 @ 提醒）</label>
-      <input type="text" id="dtAtMobiles" placeholder="13800000001,13800000002" />
-    </div>
-    <div class="row">
-      <label>每日自动检查时间（HH:MM，仅供记录与手动通知参考）</label>
+      <label>每日检查时间（HH:MM，北京时间；工作日到点后检查一次）</label>
       <input type="text" id="dtCheckTime" placeholder="21:30" />
     </div>
     <div class="row" style="background:#f9fafb;border-radius:6px;padding:10px;font-size:12px;color:#6b7280;line-height:1.6;">
@@ -506,8 +529,8 @@
       1. 在钉钉群右上角"群设置 → 智能群助手 → 添加机器人 → 自定义"<br/>
       2. 安全设置选"加签"，复制 SECRET 填入上方"加签密钥"<br/>
       3. 复制 Webhook 地址填入第一栏<br/>
-      4. 在"@手机号"里填入群里被 @ 的成员手机号（与群成员昵称无关，钉钉按手机号 @）<br/>
-      5. <b>自动定时推送</b>：工作日（周一~周五）到达上方「每日自动检查时间」后，服务会检查并推送未填写名单（默认 21:30，时区为北京时间）。服务如果在检查时间之后才启动，当天仍会补发一次。<br/>
+      4. 在"管理成员"里填写每人的钉钉手机号。未交日报时，机器人只 @ 这些人<br/>
+      5. <b>每天只推送一次</b>：工作日到达检查时间后，服务检查当天未填写名单并在群里通知（默认 21:30）。服务如果在检查时间之后才启动，当天仍会补发一次。周末不检查。<br/>
       6. 想立即推送：点侧栏"📢 立即通知未填写"手动触发
     </div>
     <div class="modal-actions">
@@ -533,7 +556,34 @@ const DEFAULT_MEMBERS = [
   '俞奇峰','岳俊新','马海波','汪云涵','蔡卓甫','胡致远'
 ];
 
-let members = JSON.parse(localStorage.getItem(MEMBER_KEY) || 'null') || [...DEFAULT_MEMBERS];
+let members = [];
+let memberMobiles = {};
+applyMemberRecords(JSON.parse(localStorage.getItem(MEMBER_KEY) || 'null') || DEFAULT_MEMBERS);
+
+function normalizeMobile(value) {
+  let digits = String(value || '').replace(/\D/g, '');
+  if (digits.startsWith('86') && digits.length === 13) digits = digits.slice(2);
+  return /^1\d{10}$/.test(digits) ? digits : '';
+}
+function applyMemberRecords(list) {
+  const nextNames = [];
+  const nextMobiles = {};
+  const seen = new Set();
+  for (const raw of list || []) {
+    const rec = typeof raw === 'string' ? { name: raw, mobile: '' } : (raw || {});
+    const name = String(rec.name || '').trim();
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    nextNames.push(name);
+    const mobile = normalizeMobile(rec.mobile);
+    if (mobile) nextMobiles[name] = mobile;
+  }
+  members = nextNames;
+  memberMobiles = nextMobiles;
+}
+function memberRecords() {
+  return members.map((name) => ({ name, mobile: memberMobiles[name] || '' }));
+}
 let currentDate = todayStr();
 let data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
 
@@ -590,6 +640,47 @@ function getMemberData(dateStr, name) {
 }
 function saveAll() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+const dirtyMembers = new Set();
+const daySaveQueues = {};
+function dirtyKey(dateStr, name) {
+  return `${dateStr}\0${name}`;
+}
+function markDirty(dateStr, name) {
+  dirtyMembers.add(dirtyKey(dateStr, name));
+}
+function dirtySnapshot(dateStr) {
+  const payload = {};
+  for (const key of dirtyMembers) {
+    const splitAt = key.indexOf('\0');
+    if (splitAt < 0) continue;
+    const date = key.slice(0, splitAt);
+    const name = key.slice(splitAt + 1);
+    if (date !== dateStr) continue;
+    const rec = getMemberData(dateStr, name);
+    payload[name] = { work: rec.work || '', plan: rec.plan || '' };
+  }
+  return payload;
+}
+function clearMatchingDirty(dateStr, sent) {
+  for (const name of Object.keys(sent)) {
+    const rec = getMemberData(dateStr, name);
+    const item = sent[name];
+    if ((rec.work || '') === item.work && (rec.plan || '') === item.plan) {
+      dirtyMembers.delete(dirtyKey(dateStr, name));
+    }
+  }
+}
+function renameDirty(oldName, newName) {
+  for (const key of [...dirtyMembers]) {
+    const splitAt = key.indexOf('\0');
+    const date = key.slice(0, splitAt);
+    const name = key.slice(splitAt + 1);
+    if (name !== oldName) continue;
+    dirtyMembers.delete(key);
+    dirtyMembers.add(dirtyKey(date, newName));
+  }
 }
 
 /* ====== 渲染 ====== */
@@ -658,6 +749,7 @@ function renderTable() {
     ta.addEventListener('input', () => {
       const rec = getMemberData(currentDate, ta.dataset.name);
       rec[ta.dataset.field] = ta.value;
+      markDirty(currentDate, ta.dataset.name);
       saveAll();
       updateLastSaved();
       renderSummary();
@@ -743,13 +835,31 @@ function renderDateList() {
 }
 function renderMemberTags() {
   const c = document.getElementById('memberTags');
-  c.innerHTML = members.map(m => `
-    <span class="member-tag">
-      <span class="name-text" onclick="renameMember('${escapeAttr(m)}')">${escapeHtml(m)}</span>
-      <button class="rename" title="改名" onclick="renameMember('${escapeAttr(m)}')">✎</button>
-      <button class="remove" title="移除" onclick="removeMember('${escapeAttr(m)}')">×</button>
-    </span>
+  c.innerHTML = members.map((name) => `
+    <div class="member-edit">
+      <span class="name-text" title="点击改名" onclick="renameMember('${escapeAttr(name)}')">${escapeHtml(name)}</span>
+      <input type="tel" inputmode="numeric" maxlength="20" placeholder="钉钉手机号，用于@"
+        data-member="${escapeHtml(name)}"
+        value="${escapeHtml(memberMobiles[name] || '')}"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"
+        onchange="onMemberPhoneChange(this)" />
+      <button type="button" class="rename" title="改名" onclick="renameMember('${escapeAttr(name)}')">✎</button>
+      <button type="button" class="remove" title="移除" onclick="removeMember('${escapeAttr(name)}')">×</button>
+    </div>
   `).join('') || '<span style="color:#9ca3af;font-size:12px;">暂无成员</span>';
+}
+function onMemberPhoneChange(input) {
+  const name = input.dataset.member;
+  const mobile = normalizeMobile(input.value);
+  if (input.value.trim() && !mobile) {
+    toast('请填写 11 位手机号');
+    input.value = memberMobiles[name] || '';
+    return;
+  }
+  input.value = mobile;
+  if (mobile) memberMobiles[name] = mobile;
+  else delete memberMobiles[name];
+  saveMembers();
 }
 function renderAll() {
   renderTitle();
@@ -783,7 +893,7 @@ function scrollToMember(name) {
 function saveCurrent() {
   saveAll();
   // 立即同步推送到 SQLite（不再 debounce，即使 serverMode=false 也尝试）
-  pushDayToServer(currentDate).then(result => {
+  enqueueDaySave(currentDate).then(result => {
     if (result && result.ok) {
       toast('✅ 已保存');
     } else {
@@ -795,16 +905,23 @@ function saveCurrent() {
 }
 // 立即推送单日数据到 SQLite，返回是否成功
 // 即使 serverMode=false 也尝试推送（detectServer 可能因超时误判）
+function enqueueDaySave(dateStr) {
+  const prev = daySaveQueues[dateStr] || Promise.resolve();
+  const next = prev.catch(() => {}).then(() => pushDayToServer(dateStr));
+  daySaveQueues[dateStr] = next;
+  return next;
+}
 async function pushDayToServer(dateStr) {
+  const payload = dirtySnapshot(dateStr);
+  if (!Object.keys(payload).length) return { ok: true };
   let reason = '';
   try {
-    const dayData = getDayData(dateStr);
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 10000);
     const r = await fetch(`${API_BASE}/api/save-day`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: dateStr, data: dayData }),
+      body: JSON.stringify({ date: dateStr, data: payload }),
       signal: ctrl.signal
     });
     clearTimeout(t);
@@ -822,6 +939,7 @@ async function pushDayToServer(dateStr) {
     }
     const j = await r.json();
     if (j && j.ok) {
+      clearMatchingDirty(dateStr, payload);
       // 推送成功，标记 serverMode=true（之前可能是误判）
       if (!serverMode) {
         serverMode = true;
@@ -845,23 +963,30 @@ function updateLastSaved() {
 }
 function clearDay() {
   if (!confirm(`确认清空 ${currentDate} 的全部内容？`)) return;
-  delete data[currentDate];
+  members.forEach((name) => {
+    const rec = getMemberData(currentDate, name);
+    rec.work = '';
+    rec.plan = '';
+    markDirty(currentDate, name);
+  });
   saveAll();
   scheduleServerSync();
   renderAll();
   toast('已清空当日');
 }
 function autoFillToday() {
-  const dayData = getDayData(currentDate);
-  const wd = parseDate(currentDate).getDay();
-  members.forEach((m, i) => {
+  members.forEach((m) => {
     const rec = getMemberData(currentDate, m);
+    let changed = false;
     if (!rec.work.trim()) {
       rec.work = `1. （待填写 ${m} 的今日工作内容）\n2. \n3. `;
+      changed = true;
     }
     if (!rec.plan.trim()) {
       rec.plan = `1. （待填写明日计划）`;
+      changed = true;
     }
+    if (changed) markDirty(currentDate, m);
   });
   saveAll();
   renderAll();
@@ -896,12 +1021,13 @@ function addMembersFromInput() {
 function removeMember(name) {
   if (!confirm(`移除成员 "${name}"？历史日报数据会保留。`)) return;
   members = members.filter(m => m !== name);
+  delete memberMobiles[name];
   renderMemberTags();
   renderSidebar();
   renderTable();
   saveMembers();
 }
-function renameMember(oldName) {
+async function renameMember(oldName) {
   const newName = prompt(`修改成员名字：\n"${oldName}" → ?`, oldName);
   if (newName === null) return;
   const trimmed = newName.trim();
@@ -911,41 +1037,81 @@ function renameMember(oldName) {
     toast(`名字 "${trimmed}" 已存在`);
     return;
   }
-  // 1. 更新成员列表
+  const membersBackup = members.slice();
+  const phonesBackup = { ...memberMobiles };
+  const dataBackup = JSON.parse(JSON.stringify(data));
+  const dirtyBackup = new Set(dirtyMembers);
   const idx = members.indexOf(oldName);
+  const phone = memberMobiles[oldName] || '';
   if (idx >= 0) members[idx] = trimmed;
-  // 2. 迁移历史日报数据（所有日期下旧名 key → 新名 key）
+  delete memberMobiles[oldName];
+  if (phone) memberMobiles[trimmed] = phone;
   let migrated = 0;
   Object.keys(data).forEach(dateStr => {
     const dayData = data[dateStr];
     if (dayData && Object.prototype.hasOwnProperty.call(dayData, oldName)) {
-      // 若新名已存在则合并（一般不会，因为前面已校验）
       dayData[trimmed] = Object.assign({}, dayData[trimmed] || {}, dayData[oldName]);
       delete dayData[oldName];
       migrated++;
     }
   });
+  renameDirty(oldName, trimmed);
   saveAll();
-  saveMembers();
-  scheduleFullServerSync(); // 整库同步到服务器
   renderMemberTags();
   renderSidebar();
   renderTable();
-  toast(`已改名：${oldName} → ${trimmed}${migrated>0 ? `（迁移 ${migrated} 天数据）` : ''}`);
+  let reason = '';
+  try {
+    await memberSaveQueue.catch(() => {});
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 10000);
+    const r = await fetch(`${API_BASE}/api/rename-member`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: oldName, to: trimmed }),
+      signal: ctrl.signal
+    });
+    clearTimeout(t);
+    const j = await safeJson(r);
+    if (!r.ok || !j || !j.ok) reason = (j && j.error) || `HTTP ${r.status}`;
+    else migrated = Number(j.migrated || migrated);
+  } catch (e) {
+    reason = e.name === 'AbortError' ? '超时(10s)' : (e.message || '网络错误');
+  }
+  if (reason) {
+    members = membersBackup;
+    memberMobiles = phonesBackup;
+    data = dataBackup;
+    dirtyMembers.clear();
+    dirtyBackup.forEach((key) => dirtyMembers.add(key));
+    saveAll();
+    renderMemberTags();
+    renderSidebar();
+    renderTable();
+    toast(`改名失败：${reason}`);
+    return;
+  }
+  saveMembers();
+  toast(`已改名：${oldName} → ${trimmed}${migrated > 0 ? `（迁移 ${migrated} 天数据）` : ''}`);
 }
+let memberSaveQueue = Promise.resolve();
 function saveMembers() {
-  localStorage.setItem(MEMBER_KEY, JSON.stringify(members));
-  // 立即推送到 SQLite（即使 serverMode=false 也尝试，detectServer 可能误判）
-  pushMembersToServer().then(result => {
-    if (result && result.ok) {
-      toast('✅ 成员已保存');
-    } else {
-      toast(`⚠️ 保存失败：${(result && result.reason) || '未知原因'}`);
-    }
-  });
+  const records = memberRecords();
+  localStorage.setItem(MEMBER_KEY, JSON.stringify(records));
+  // 按顺序推送，避免连续改手机号时旧请求覆盖新数据
+  memberSaveQueue = memberSaveQueue
+    .catch(() => {})
+    .then(() => pushMembersToServer(records))
+    .then(result => {
+      if (result && result.ok) {
+        toast('✅ 成员已保存');
+      } else {
+        toast(`⚠️ 保存失败：${(result && result.reason) || '未知原因'}`);
+      }
+    });
 }
 // 立即推送成员名单到 SQLite
-async function pushMembersToServer() {
+async function pushMembersToServer(records) {
   let reason = '';
   try {
     const ctrl = new AbortController();
@@ -953,7 +1119,7 @@ async function pushMembersToServer() {
     const r = await fetch(`${API_BASE}/api/members`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(members),
+      body: JSON.stringify(records || memberRecords()),
       signal: ctrl.signal
     });
     clearTimeout(t);
@@ -1204,8 +1370,8 @@ async function syncFromServer() {
     if (r.ok) {
       const m = await r.json();
       if (Array.isArray(m) && m.length) {
-        members = m;
-        localStorage.setItem(MEMBER_KEY, JSON.stringify(members));
+        applyMemberRecords(m);
+        localStorage.setItem(MEMBER_KEY, JSON.stringify(memberRecords()));
       }
     }
   } catch {}
@@ -1215,6 +1381,16 @@ async function syncFromServer() {
     if (r.ok) {
       const all = await r.json();
       if (all && typeof all === 'object' && !Array.isArray(all) && !all.error) {
+        for (const key of dirtyMembers) {
+          const splitAt = key.indexOf('\0');
+          if (splitAt < 0) continue;
+          const date = key.slice(0, splitAt);
+          const name = key.slice(splitAt + 1);
+          const local = data[date] && data[date][name];
+          if (!local) continue;
+          if (!all[date]) all[date] = {};
+          all[date][name] = { work: local.work || '', plan: local.plan || '' };
+        }
         data = all;
         if (!data[currentDate]) data[currentDate] = {};
         saveAll();
@@ -1223,37 +1399,14 @@ async function syncFromServer() {
   } catch {}
 }
 
-// debounce 服务器同步
+// debounce 服务器同步。只提交本次改过的成员，同一天串行发送。
 let saveTimer = null;
 function scheduleServerSync() {
   if (!serverMode) return;
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    const dayData = getDayData(currentDate);
-    fetch(`${API_BASE}/api/save-day`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: currentDate, data: dayData })
-    }).catch(()=>{});
+    enqueueDaySave(currentDate);
   }, 600);
-}
-// 整库同步（用于改名等批量迁移场景）
-function scheduleFullServerSync() {
-  if (!serverMode) return;
-  // 用一个独立 timer，不与单日同步冲突
-  clearTimeout(window._fullSyncTimer);
-  window._fullSyncTimer = setTimeout(async () => {
-    try {
-      const dates = Object.keys(data);
-      for (const dateStr of dates) {
-        await fetch(`${API_BASE}/api/save-day`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ date: dateStr, data: data[dateStr] })
-        });
-      }
-    } catch {}
-  }, 300);
 }
 
 /* === 钉钉设置弹窗 === */
@@ -1270,8 +1423,7 @@ function applyDingTalkConfig(cfg) {
   document.getElementById('dtWebhook').value = cfg.webhook || '';
   document.getElementById('dtSecret').value = cfg.secret || '';
   document.getElementById('dtSiteUrl').value = cfg.siteUrl || (location.href);
-  document.getElementById('dtAtMobiles').value = (cfg.atMobiles || []).join(',');
-  document.getElementById('dtCheckTime').value = cfg.checkTime || '18:00';
+  document.getElementById('dtCheckTime').value = cfg.checkTime || '21:30';
 }
 async function saveDingTalkConfig() {
   if (!serverMode) { toast('未连接后端，无法保存'); return; }
@@ -1279,8 +1431,7 @@ async function saveDingTalkConfig() {
     webhook: document.getElementById('dtWebhook').value.trim(),
     secret: document.getElementById('dtSecret').value.trim(),
     siteUrl: document.getElementById('dtSiteUrl').value.trim(),
-    atMobiles: document.getElementById('dtAtMobiles').value.split(/[,，\s]+/).map(s=>s.trim()).filter(Boolean),
-    checkTime: document.getElementById('dtCheckTime').value.trim() || '18:00'
+    checkTime: document.getElementById('dtCheckTime').value.trim() || '21:30'
   };
   try {
     const r = await fetch(`${API_BASE}/api/config`, {
@@ -1314,7 +1465,9 @@ async function notifyUnfilled() {
     if (!j) { toast('服务器返回非 JSON，请检查 server.js 是否在运行'); return; }
     if (j.ok) {
       if (j.sent) {
-        toast(`已通知 ${j.unfilled.length} 位未填写：${j.unfilled.join('、')}`);
+        const missing = (j.missingMobile || []).length;
+        const extra = missing ? `（${missing} 人未绑定手机号，未能 @）` : '';
+        toast(`已通知 ${j.unfilled.length} 位未填写：${j.unfilled.join('、')}${extra}`);
       } else {
         toast(j.message || '全员已填写，无需通知');
       }
