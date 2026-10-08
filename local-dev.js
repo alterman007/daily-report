@@ -88,7 +88,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   // 静态文件
-  let filePath = pathname === '/' ? '/daily-report.html' : decodeURIComponent(pathname);
+  let filePath = pathname === '/' ? '/index.html' : decodeURIComponent(pathname);
   filePath = path.normalize(path.join(__dirname, filePath));
   if (!filePath.startsWith(__dirname)) { res.writeHead(403); res.end('Forbidden'); return; }
   fs.readFile(filePath, (err, data) => {
