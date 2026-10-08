@@ -1,0 +1,9 @@
+{
+  "name": "team-daily-report",
+  "version": "1.0.0",
+  "description": "团队日报系统 - Vercel serverless 版本",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  }
+}
