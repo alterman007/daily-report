@@ -29,6 +29,31 @@ const MIME = {
   '.css':  'text/css; charset=utf-8'
 };
 
+// Vercel 把 server.js 编译进函数目录后，__dirname 不一定是项目根
+// 收集所有可能的静态文件根目录，按顺序查找
+const STATIC_ROOTS = [
+  __dirname,                              // 本地 node server.js
+  process.cwd(),                          // Vercel serverless 常见工作目录
+  path.join(__dirname, '..'),             // 函数目录的上一层
+  path.join(process.cwd(), 'public'),     // public 约定
+  path.join(__dirname, '..', 'public'),
+  path.join(__dirname, '..', '..')        // 再上一层兜底
+].filter((p, i, arr) => p && arr.indexOf(p) === i);
+
+function findStaticFile(relPath) {
+  // relPath 形如 "/index.html" 或 "/style.css"
+  const clean = relPath.replace(/^\/+/, '');
+  for (const root of STATIC_ROOTS) {
+    const full = path.normalize(path.join(root, clean));
+    try {
+      if (fs.existsSync(full) && fs.statSync(full).isFile()) {
+        return full;
+      }
+    } catch {}
+  }
+  return null;
+}
+
 // 包装 Node 原生 res 让它兼容 Vercel 风格的 res.status().json()
 function wrapRes(res) {
   return {
@@ -80,10 +105,14 @@ const server = http.createServer(async (req, res) => {
     return lib.jsonRes(wrappedRes, 404, { ok: false, error: `未知 API: ${pathname}` });
   }
 
-  // 静态文件
-  let filePath = pathname === '/' ? '/index.html' : decodeURIComponent(pathname);
-  filePath = path.normalize(path.join(__dirname, filePath));
-  if (!filePath.startsWith(__dirname)) { res.writeHead(403); res.end('Forbidden'); return; }
+  // 静态文件：在多个候选根目录中查找
+  const relPath = pathname === '/' ? '/index.html' : decodeURIComponent(pathname);
+  const filePath = findStaticFile(relPath);
+  if (!filePath) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Not Found');
+    return;
+  }
   fs.readFile(filePath, (err, data) => {
     if (err) {
       res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
