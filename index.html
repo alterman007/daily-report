@@ -933,12 +933,50 @@ function renameMember(oldName) {
 }
 function saveMembers() {
   localStorage.setItem(MEMBER_KEY, JSON.stringify(members));
-  if (serverMode) {
-    fetch(`${API_BASE}/api/members`, {
+  // 立即推送到 SQLite（即使 serverMode=false 也尝试，detectServer 可能误判）
+  pushMembersToServer().then(result => {
+    if (result && result.ok) {
+      toast('✅ 成员已保存到云端 SQLite');
+    } else {
+      toast(`⚠️ 云端推送失败：${(result && result.reason) || '未知原因'}`);
+    }
+  });
+}
+// 立即推送成员名单到 SQLite
+async function pushMembersToServer() {
+  let reason = '';
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 10000);
+    const r = await fetch(`${API_BASE}/api/members`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(members)
-    }).catch(()=>{});
+      body: JSON.stringify(members),
+      signal: ctrl.signal
+    });
+    clearTimeout(t);
+    const ct = r.headers.get('content-type') || '';
+    if (!r.ok) {
+      reason = `HTTP ${r.status} (${ct || '无 ct'})`;
+      return { ok: false, reason };
+    }
+    if (!ct.includes('application/json')) {
+      reason = `非 JSON 响应: ${ct}`;
+      return { ok: false, reason };
+    }
+    const j = await r.json();
+    if (j && j.ok) {
+      if (!serverMode) {
+        serverMode = true;
+        setStatus('✅ 已连接云端数据库 · 钉钉通知可用');
+      }
+      return { ok: true };
+    }
+    reason = j && j.error ? j.error : JSON.stringify(j).slice(0, 100);
+    return { ok: false, reason };
+  } catch (e) {
+    reason = e.name === 'AbortError' ? '超时(10s)' : (e.message || '网络错误');
+    return { ok: false, reason };
   }
 }
 
@@ -1158,12 +1196,15 @@ function setStatus(msg) {
 }
 
 async function syncFromServer() {
-  // 同步成员
+  // 同步成员（只更新本地，不再回推服务器，避免循环）
   try {
     const r = await fetch(`${API_BASE}/api/members`);
     if (r.ok) {
       const m = await r.json();
-      if (Array.isArray(m) && m.length) { members = m; saveMembers(); }
+      if (Array.isArray(m) && m.length) {
+        members = m;
+        localStorage.setItem(MEMBER_KEY, JSON.stringify(members));
+      }
     }
   } catch {}
   // 同步当日数据
