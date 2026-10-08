@@ -2,6 +2,7 @@
   "name": "team-daily-report",
   "version": "2.0.0",
   "private": true,
+  "main": "index.js",
   "dependencies": {
     "@libsql/client": "^0.14.0"
   }
