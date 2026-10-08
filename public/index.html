@@ -380,10 +380,8 @@
     <div class="summary" id="summaryCards"></div>
 
     <div class="toolbar">
-      <button class="btn" onclick="autoFillToday()">📋 一键填入模板</button>
       <button class="btn secondary" onclick="saveCurrent()">💾 保存</button>
       <button class="btn ghost" onclick="exportDayHTML()">导出当日 (HTML)</button>
-      <button class="btn danger" onclick="clearDay()">清空当日</button>
       <span style="font-size:12px;color:var(--muted);margin-left:auto;" id="lastSaved">未保存</span>
     </div>
 
@@ -665,9 +663,31 @@ function scrollToMember(name) {
 }
 function saveCurrent() {
   saveAll();
-  scheduleServerSync();
-  toast('已保存');
+  // 立即同步推送到 SQLite（不再 debounce）
+  pushDayToServer(currentDate).then(ok => {
+    if (ok) {
+      toast('✅ 已保存到云端 SQLite');
+    } else if (serverMode) {
+      toast('⚠️ 云端推送失败，已存本地');
+    } else {
+      toast('已保存到本地（未连接云端）');
+    }
+  });
   updateLastSaved();
+}
+// 立即推送单日数据到 SQLite，返回是否成功
+async function pushDayToServer(dateStr) {
+  if (!serverMode) return false;
+  try {
+    const dayData = getDayData(dateStr);
+    const r = await fetch(`${API_BASE}/api/save-day`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: dateStr, data: dayData })
+    });
+    const j = await safeJson(r);
+    return r.ok && j && j.ok;
+  } catch { return false; }
 }
 function updateLastSaved() {
   const t = new Date();
