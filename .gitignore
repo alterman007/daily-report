@@ -8,3 +8,7 @@ data/
 .env
 .DS_Store
 .playwright-mcp/
+.uploads
+.tmp
+.trae-html-share-packages
+.screenshots
