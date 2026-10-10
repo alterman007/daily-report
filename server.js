@@ -184,7 +184,7 @@ function startScheduler() {
 
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`[daily-report] http://0.0.0.0:${PORT}`);
-  console.log(`[daily-report] sqlite ${store.file}`);
+  console.log(`[daily-report] sqlite ${store.file} (kept on the host, not in the image)`);
   startScheduler();
 });
 

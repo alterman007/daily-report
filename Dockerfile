@@ -16,7 +16,8 @@ ENV NODE_ENV=production \
 
 RUN mkdir -p /data && chown -R node:node /app /data
 
-USER node
+# 以 root 启动，便于修正宿主机数据目录的属主；server.js 打开数据库前会降为 node。
+USER root
 EXPOSE 3000
 VOLUME ["/data"]
 

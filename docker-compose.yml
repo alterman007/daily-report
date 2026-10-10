@@ -8,10 +8,15 @@ services:
       NODE_ENV: production
       PORT: 3000
       DATABASE_PATH: /data/daily-report.db
+      # 仅用于把旧的命名卷拷到下面的宿主机目录，拷过一次后不再覆盖
+      LEGACY_DATABASE_PATH: /var/lib/daily-report-legacy/daily-report.db
       TZ: Asia/Shanghai
       CRON_SECRET: ${CRON_SECRET:-}
     volumes:
-      - daily-report-data:/data
+      # SQLite 在宿主机这个目录。重建镜像、重启容器都不会删除。
+      # 生产环境把 DATA_DIR 设成代码目录以外的绝对路径，换发布目录时历史日报还在。
+      - ${DATA_DIR:-./data}:/data
+      - daily-report-data:/var/lib/daily-report-legacy:ro
     restart: unless-stopped
     healthcheck:
       test:

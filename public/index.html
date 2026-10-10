@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>团队日报系统</title>
 <style>
   :root {
@@ -40,6 +40,27 @@
     flex-shrink: 0;
     border-right: 1px solid #111827;
   }
+  .sidebar-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .sidebar-close {
+    display: none;
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid #4b5563;
+    background: transparent;
+    color: #e5e7eb;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .sidebar-mask { display: none; }
+  .menu-btn { display: none; }
   .sidebar h1 {
     font-size: 16px;
     color: #fff;
@@ -147,10 +168,27 @@
     flex-wrap: wrap;
     margin-bottom: 16px;
   }
+  .title-wrap {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
   .topbar h2 {
     margin: 0;
     font-size: 18px;
     font-weight: 600;
+  }
+  .week-range {
+    font-size: 18px;
+    font-weight: 600;
+  }
+  .week-range::before {
+    content: "·";
+    margin-right: 8px;
+    color: #9ca3af;
+    font-weight: 400;
   }
   .spacer { flex: 1; }
   .date-nav {
@@ -313,7 +351,7 @@
     background: rgba(15, 23, 42, 0.5);
     display: none;
     align-items: center; justify-content: center;
-    z-index: 100;
+    z-index: 180;
   }
   .modal-mask.show { display: flex; }
   .modal {
@@ -393,9 +431,205 @@
     box-shadow: 0 8px 20px rgba(0,0,0,0.2);
     opacity: 0; pointer-events: none;
     transition: opacity .2s;
-    z-index: 200;
+    z-index: 220;
   }
   .toast.show { opacity: 1; }
+
+  @media (max-width: 900px) {
+    html, body { overflow-x: hidden; }
+    body { -webkit-text-size-adjust: 100%; }
+    body.nav-open { overflow: hidden; }
+
+    .menu-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      flex-shrink: 0;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #fff;
+      font-size: 20px;
+      line-height: 1;
+      cursor: pointer;
+      color: #1f2937;
+    }
+    .sidebar-mask {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      z-index: 140;
+    }
+    .sidebar-mask.show { display: block; }
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: min(320px, 88vw);
+      z-index: 150;
+      transform: translateX(-105%);
+      transition: transform .2s ease;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-top: calc(18px + env(safe-area-inset-top));
+      padding-bottom: calc(18px + env(safe-area-inset-bottom));
+    }
+    .sidebar.open { transform: translateX(0); }
+    .sidebar-close { display: inline-flex; align-items: center; justify-content: center; }
+    .sidebar .btn-outline { min-height: 44px; font-size: 15px; }
+    #serverStatus { overflow-wrap: anywhere; }
+    .date-list { max-height: none; }
+    .date-list li, .member-list li { min-height: 44px; font-size: 15px; }
+    .ym-picker select { min-height: 44px; font-size: 16px; }
+
+    .layout { display: block; }
+    .main {
+      display: flex;
+      flex-direction: column;
+      padding: 12px 12px 108px;
+      overflow: visible;
+      min-height: 100vh;
+      min-height: 100dvh;
+    }
+    .topbar { gap: 8px; margin-bottom: 12px; align-items: center; }
+    .title-wrap { flex: 1; flex-direction: column; align-items: flex-start; gap: 2px; }
+    .topbar h2 { font-size: 17px; }
+    .week-range { font-size: 12px; font-weight: 500; color: var(--muted); }
+    .week-range::before { content: none; }
+    .spacer { display: none; }
+    .date-nav {
+      flex: 1 1 100%;
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr) 44px auto;
+      gap: 4px;
+      padding: 4px;
+    }
+    .date-nav button { min-height: 44px; font-size: 18px; }
+    .date-nav input[type="date"] {
+      width: 100%;
+      min-width: 0;
+      min-height: 44px;
+      font-size: 16px;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .stat-card { min-width: 0; padding: 10px 12px; }
+    .stat-card .value { font-size: 16px; word-break: break-word; }
+
+    .toolbar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 40;
+      margin: 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+      background: rgba(240, 242, 245, 0.96);
+      border-top: 1px solid var(--border);
+      backdrop-filter: blur(8px);
+    }
+    body.typing .toolbar { display: none; }
+    .toolbar .btn {
+      min-height: 44px;
+      justify-content: center;
+      font-size: 15px;
+    }
+    #lastSaved {
+      grid-column: 1 / -1;
+      margin-left: 0 !important;
+      text-align: center;
+    }
+
+    .table-wrap {
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      overflow: visible;
+    }
+    table.report,
+    table.report tbody,
+    table.report tr,
+    table.report td {
+      display: block;
+      width: 100%;
+    }
+    table.report { table-layout: auto; }
+    table.report colgroup,
+    table.report thead { display: none; }
+    table.report tr {
+      margin-bottom: 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      background: #fff;
+    }
+    table.report td {
+      border-right: none;
+      border-top: none;
+    }
+    table.report tr:nth-child(even) td,
+    table.report tr:nth-child(odd) td,
+    table.report tr:hover td { background: #fff; }
+    .name-cell {
+      width: auto;
+      padding: 12px 14px;
+      font-size: 16px;
+      background: #fff6cc !important;
+      border-bottom: 1px solid var(--border);
+    }
+    .content-cell::before,
+    .plan-cell::before {
+      content: attr(data-label);
+      display: block;
+      padding: 10px 14px 0;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+    }
+    .plan-cell { border-top: 1px solid var(--border); }
+    .cell-editor {
+      min-height: 108px;
+      font-size: 16px;
+      padding: 8px 14px 14px;
+    }
+    .empty-row .hint { display: block; }
+
+    .modal-mask.show { align-items: flex-end; padding: 0; }
+    .modal {
+      width: 100%;
+      max-width: 100%;
+      max-height: 92dvh;
+      border-radius: 14px 14px 0 0;
+      padding: 18px 16px calc(16px + env(safe-area-inset-bottom));
+    }
+    .modal input, .modal select, .modal textarea { font-size: 16px; min-height: 44px; }
+    .modal-actions { flex-wrap: wrap; }
+    .modal-actions .btn { flex: 1 1 120px; justify-content: center; min-height: 44px; }
+    .member-edit { flex-wrap: wrap; gap: 8px; padding: 10px 0; }
+    .member-edit .name-text { width: auto; min-width: 4.5em; font-size: 15px; }
+    .member-edit input { flex: 1 1 160px; min-width: 0; font-size: 16px; min-height: 44px; }
+    .member-edit .rename, .member-edit .remove {
+      width: 36px;
+      height: 36px;
+      font-size: 18px;
+    }
+    .toast {
+      bottom: calc(88px + env(safe-area-inset-bottom));
+      width: max-content;
+      max-width: calc(100vw - 32px);
+      text-align: center;
+    }
+    body.typing .toast { bottom: calc(16px + env(safe-area-inset-bottom)); }
+  }
 
   /* Export view (printable) */
   .export-view { display: none; }
@@ -414,9 +648,14 @@
 <body>
 <div class="layout">
   <!-- Sidebar -->
-  <aside class="sidebar">
-    <h1>团队日报系统</h1>
-    <div class="sub">按日期自动生成 · 按周导出</div>
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-head">
+      <div>
+        <h1>团队日报系统</h1>
+        <div class="sub">按日期自动生成 · 按周导出</div>
+      </div>
+      <button type="button" class="sidebar-close" onclick="closeSidebar()" aria-label="关闭菜单">✕</button>
+    </div>
 
     <h2>按月查看日报</h2>
     <div class="ym-picker">
@@ -444,11 +683,16 @@
     <button class="btn-outline" onclick="notifyUnfilled()">📢 立即通知未填写</button>
     <div id="serverStatus" style="font-size:11px;color:#9ca3af;margin-top:6px;padding:0 4px;line-height:1.5;">检测后端中...</div>
   </aside>
+  <div class="sidebar-mask" id="sidebarMask" onclick="closeSidebar()"></div>
 
   <!-- Main -->
   <main class="main">
     <div class="topbar">
-      <h2 id="reportTitle">日报</h2>
+      <button type="button" class="menu-btn" onclick="toggleSidebar()" aria-label="打开菜单">☰</button>
+      <div class="title-wrap">
+        <h2 id="reportTitle">日报</h2>
+        <span class="week-range" id="weekRange"></span>
+      </div>
       <div class="spacer"></div>
       <div class="date-nav">
         <button onclick="changeDay(-1)" title="前一天">‹</button>
@@ -688,8 +932,8 @@ function renderTitle() {
   const d = parseDate(currentDate);
   const wd = ['周日','周一','周二','周三','周四','周五','周六'][d.getDay()];
   const { start, end } = getWeekRange(currentDate);
-  document.getElementById('reportTitle').textContent =
-    `${currentDate} ${wd}  ·  周报区间 ${start} ~ ${end}`;
+  document.getElementById('reportTitle').textContent = `${currentDate} ${wd}`;
+  document.getElementById('weekRange').textContent = `周报区间 ${start} ~ ${end}`;
   document.getElementById('datePicker').value = currentDate;
 }
 function renderSummary() {
@@ -722,7 +966,7 @@ function renderTable() {
   const dayData = getDayData(currentDate);
   const body = document.getElementById('reportBody');
   if (members.length === 0) {
-    body.innerHTML = `<tr class="empty-row"><td colspan="3" class="hint">尚无成员，请点击左侧"管理成员"添加。</td></tr>`;
+    body.innerHTML = `<tr class="empty-row"><td colspan="3" class="hint">尚无成员，请打开菜单里的「管理成员」添加。</td></tr>`;
     return;
   }
   body.innerHTML = members.map((m, i) => {
@@ -733,11 +977,11 @@ function renderTable() {
         <td class="name-cell">
           <span class="badge ${filled?'':'empty'}"></span>${escapeHtml(m)}
         </td>
-        <td class="content-cell">
+        <td class="content-cell" data-label="工作内容">
           <textarea class="cell-editor" data-name="${escapeAttr(m)}" data-field="work"
             placeholder="今日完成的工作（可分条编号，如：1. xxx 2. xxx）">${escapeHtml(rec.work||'')}</textarea>
         </td>
-        <td class="plan-cell">
+        <td class="plan-cell" data-label="明日计划">
           <textarea class="cell-editor" data-name="${escapeAttr(m)}" data-field="plan"
             placeholder="明日计划...">${escapeHtml(rec.plan||'')}</textarea>
         </td>
@@ -875,9 +1119,24 @@ function changeDay(delta) {
   currentDate = fmtDate(d);
   renderAll();
 }
+function isPhoneLayout() {
+  return window.matchMedia('(max-width: 900px)').matches;
+}
+function toggleSidebar() {
+  const open = !document.getElementById('sidebar').classList.contains('open');
+  document.getElementById('sidebar').classList.toggle('open', open);
+  document.getElementById('sidebarMask').classList.toggle('show', open);
+  document.body.classList.toggle('nav-open', open);
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarMask').classList.remove('show');
+  document.body.classList.remove('nav-open');
+}
 function loadDate(s) {
   if (!s) return;
   currentDate = s;
+  closeSidebar();
   renderAll();
   if (serverMode) syncFromServer().then(()=>renderAll());
 }
@@ -996,6 +1255,7 @@ function autoFillToday() {
 
 /* ====== 成员管理 ====== */
 function openMemberModal() {
+  closeSidebar();
   renderMemberTags();
   document.getElementById('memberModal').classList.add('show');
   document.getElementById('newMemberInput').focus();
@@ -1411,6 +1671,7 @@ function scheduleServerSync() {
 
 /* === 钉钉设置弹窗 === */
 function openDingTalkModal() {
+  closeSidebar();
   document.getElementById('dingTalkModal').classList.add('show');
   // 拉取最新配置
   fetch(`${API_BASE}/api/config`).then(r=>r.json()).then(applyDingTalkConfig).catch(()=>{});
@@ -1503,6 +1764,27 @@ document.getElementById('memberModal').addEventListener('click', e => {
 });
 document.getElementById('dingTalkModal').addEventListener('click', e => {
   if (e.target.id === 'dingTalkModal') closeDingTalkModal();
+});
+
+document.addEventListener('focusin', (e) => {
+  if (!isPhoneLayout()) return;
+  if (e.target.matches('textarea, input')) document.body.classList.add('typing');
+  if (e.target.matches('textarea.cell-editor')) {
+    setTimeout(() => {
+      e.target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 280);
+  }
+});
+document.addEventListener('focusout', () => {
+  setTimeout(() => {
+    const active = document.activeElement;
+    if (!active || !active.matches || !active.matches('textarea, input')) {
+      document.body.classList.remove('typing');
+    }
+  }, 80);
+});
+window.addEventListener('resize', () => {
+  if (!isPhoneLayout()) closeSidebar();
 });
 
 // Keyboard shortcuts

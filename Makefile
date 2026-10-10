@@ -23,6 +23,7 @@ build:
 push: build
 	docker compose push
 
+# 日报在 DATA_DIR（默认 ./data），升级镜像不会清空
 up:
 	docker compose up -d
 
